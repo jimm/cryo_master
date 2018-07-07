@@ -1,0 +1,13 @@
+name: cryo_master
+version: 0.1.0
+
+authors:
+  - Jim Menard <jim@jimmenard.com>
+
+targets:
+  cryo_master:
+    main: src/cryo_master.cr
+
+crystal: 0.25.0
+
+license: MIT
