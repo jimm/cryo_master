@@ -8,6 +8,11 @@ targets:
   cryo_master:
     main: src/cryo_master.cr
 
+dependencies:
+  crt:
+    github: maiha/crt.cr
+    version: 0.3.0
+
 crystal: 0.25.0
 
 license: MIT
