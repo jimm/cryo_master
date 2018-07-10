@@ -1,7 +1,5 @@
-class Message
-  property name : String
-  property messages = [] of LibPortMidi::Message
+require "./nameable"
 
-  def initialize(@name)
-  end
+class Message < Nameable
+  property messages = [] of LibPortMidi::Message
 end

@@ -1,3 +1,9 @@
+require "./patch"
+require "./song"
+require "./song_list"
+require "./sorted_song_list"
+require "./message"
+
 class CM
   DEBUG_FILE = "/tmp/pm_debug.txt"
 
@@ -6,7 +12,7 @@ class CM
   property inputs = [] of InputInstrument
   property outputs = [] of OutputInstrument
   property song_lists = [] of SongList
-  property all_songs = SortedSongList.new("All Songs")
+  property all_songs : SortedSongList
   property loaded_from_file = ""
   property messages = [] of Message # TODO hash
   @song_list : SongList
@@ -16,6 +22,7 @@ class CM
   class_getter(instance) { CM.new }
 
   def initialize()
+    @all_songs = SortedSongList.new("All Songs")
     @song_lists << @all_songs
     @song_list = @song_lists.first
     @song = nil
@@ -57,25 +64,26 @@ class CM
   end
 
   def start(init_cursor = true)
-    puts "CM start"
     clear_cursor if init_cursor
     @running = true
     start_patch(@patch)
     @inputs.each(&.start)
   end
 
-  # def stop
-  #   @cursor.patch.stop if @cursor.patch
-  #   @inputs.map(&.stop)
-  #   @running = false
-  #   close_debug_file
-  # end
+  def stop
+    stop_patch(@patch)
+    @inputs.map(&.stop)
+    @running = false
+    close_debug_file
+  end
 
-  # def send_message(name)
-  # end
+  def send_message(name)
+    # TODO
+  end
 
-  # def panic(individual_notes = false)
-  # end
+  def panic(individual_notes = false)
+    # TODO
+  end
 
   # def debug=(b : Bool)
   #   @debug = b
@@ -275,9 +283,11 @@ class CM
   end
 
   def start_patch(patch : Nil)
+    puts "we have no patch, nothing to do" # DEBUG
   end
 
   def start_patch(patch : Patch)
+    puts "we have a non-nil patch, starting" # DEBUG
     patch.start
   end
 
@@ -286,5 +296,10 @@ class CM
 
   def stop_patch(patch : Patch)
     patch.stop
+  end
+
+  # DEBUG
+  def dump
+    pp self
   end
 end

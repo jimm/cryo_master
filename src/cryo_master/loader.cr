@@ -1,3 +1,6 @@
+require "./connection"
+require "./formatter"
+
 class Loader
   include Formatter
 
@@ -58,9 +61,9 @@ class Loader
   @message = Message.new("dummy")
   @error_str = ""
   @markup = ORG_MODE_MARKUP
+  @notes = [] of String
 
   def initialize
-    @notes = Array(String).new
     clear
   end
 
@@ -69,18 +72,18 @@ class Loader
     error_str = ""
 
     old_cm = CM.instance
-    cm = CM.new                 # side-effect: CM static instance set
+    @cm = CM.new                # side-effect: CM static instance set
     File.open(path, "r") do |f|
       determine_markup(path)
-      cm.loaded_from_file = path
-      cm.testing = testing
+      @cm.loaded_from_file = path
+      @cm.testing = testing
       clear
       while !error? && (line = f.gets(true)) != nil
         parse_line(line) if line
       end
       ensure_song_has_patch
     end
-    cm
+    @cm
   end
 
   def error?
@@ -269,6 +272,7 @@ class Loader
 
     s = Song.new(line)
     @cm.all_songs.songs << s
+    puts "added song #{s.name} to all_songs, size = #{@cm.all_songs.songs.size}" # DEBUG
     @song = s
     @patch = Patch.new
     @conn = nil : Connection

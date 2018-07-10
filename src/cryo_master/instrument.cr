@@ -1,12 +1,15 @@
-class Instrument
+require "./nameable"
+require "./trigger"
+
+class Instrument < Nameable
   MIDI_BUFSIZ = 128
 
   property sym : String
-  property name : String
   property port_num : Int32
   property port : LibPortMidi::Stream
 
-  def initialize(@sym, @name, @port_num, @port)
+  def initialize(@sym, name, @port_num, @port)
+    super(name)
   end
 end
 
@@ -30,6 +33,7 @@ class InputInstrument < Instrument
   end
 
   def start
+    puts "starting input #{@name}" # DEBUG
     @running = true
     channel = Channel(Array(UInt8)).new
     # FIXME

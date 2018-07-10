@@ -1,7 +1,12 @@
-class SongList
-  property name : String
-  property songs = [] of Song
+class SongList < Nameable
+  @songs : Array(Song)
 
-  def initialize(@name)
+  def initialize(name)
+    super
+    @songs = [] of Song
+  end
+
+  def songs
+    @songs
   end
 end

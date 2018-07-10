@@ -1,3 +1,7 @@
+require "./consts"
+require "./instrument"
+require "./controller"
+
 class Connection
   include Consts
 

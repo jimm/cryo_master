@@ -1,5 +1,9 @@
 require "option_parser"
-require "./cryo_master/*"
+require "./cryo_master/port_midi"
+require "./cryo_master/cm"
+require "./cryo_master/loader"
+require "./cryo_master/version"
+require "./cryo_master/curses/main"
 
 # usage: cryo_master [-l] [-v] [-n] [-w] [-p port] [-d] [cm_file]
 #
@@ -27,11 +31,20 @@ module CryoMaster
     testing = false
     OptionParser.parse! do |parser|
       parser.banner = "usage: cryo_master [arguments]"
-      parser.on("-l", "--list-devices", "List MIDI devices and exit") { list_devices; exit(0) }
-      parser.on("-v", "--version", "List cryo_master version and exit") { puts CryoMaster::VERSION; exit(0) }
+      parser.on("-l", "--list-devices", "List MIDI devices and exit") do
+        list_devices
+        exit(0)
+      end
+      parser.on("-v", "--version", "List cryo_master version and exit") do
+        puts CryoMaster::VERSION
+        exit(0)
+      end
       parser.on("-n", "--no-midi", "No MIDI (for testing and .cm file debugging)") { testing = true }
       parser.on("-d", "--debug", "Debug output to /tmp/cm_debug.txt") { debug = true }
-      parser.on("-h", "--help", "Show this help") { puts parser; exit(0) }
+      parser.on("-h", "--help", "Show this help") do
+        puts parser
+        exit(0)
+      end
       parser.invalid_option do |flag|
         STDERR.puts "error: #{flag} is not a valid option"
         STDERR.puts parser
@@ -42,8 +55,8 @@ module CryoMaster
     if ARGV.size > 0
       cm = Loader.new.load(ARGV[0], testing)
       cm.start
-      # TODO start GUI, call stop after GUI is done
-      # cm.stop
+      Main.new(cm).run
+      cm.stop
     else
       STDERR.puts "error: missing file name"
       exit(1)

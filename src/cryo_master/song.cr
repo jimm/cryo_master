@@ -1,9 +1,11 @@
-class Song
-  property name : String
+require "./nameable"
+
+class Song < Nameable
   property patches : Array(Patch)
   property notes = Array(String).new
 
-  def initialize(@name = "Unnamed")
+  def initialize(name = "Unnamed")
+    super(name)
     @patches = [] of Patch
     CM.instance.all_songs.songs << self
   end

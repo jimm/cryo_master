@@ -1,3 +1,5 @@
+require "./consts"
+
 @[Link("portmidi")]
 lib LibPortMidi
   NO_DEVICE = -1
