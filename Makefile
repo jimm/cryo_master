@@ -6,9 +6,10 @@ all:
 release:
 	crystal build 'src/cryo_master.cr' -o $(NAME) --release
 
-spec:
 test:
 	crystal spec
+
+spec:	test
 
 clean:
 	rm -f $(NAME) $(NAME).dwarf
