@@ -119,7 +119,7 @@ class Main
     @song_list_win = ListWindow.new(*g.song_list_rect, "Song List")
     @song_win = ListWindow.new(*g.song_rect, "Song")
     @patch_win = PatchWindow.new(*g.patch_rect, "Patch")
-    @message_win = Window.new(*g.message_rect)
+    @message_win = Crt::Window.new(*g.message_rect)
     @trigger_win = TriggerWindow.new(*g.trigger_rect)
     @info_win = InfoWindow.new(*g.info_rect)
 

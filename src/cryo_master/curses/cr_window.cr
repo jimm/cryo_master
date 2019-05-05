@@ -9,11 +9,13 @@ class CrWindow
   @row : Int32
   @col : Int32
 
+  forward_missing_to(@win)
+
   # If title is nil then list's name will be used
   def initialize(@rows, @cols, @row, @col, @title_prefix)
     @win = Crt::Window.new(rows, cols, row, col)
-    forward_missing_to(@win)
     @title_prefix = title_prefix
+    @max_contents_len = 0
     set_max_contents_len(cols)
     @title = ""
   end

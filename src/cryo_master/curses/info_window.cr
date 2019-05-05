@@ -8,8 +8,8 @@ class InfoWindow < CrWindow
 
   def initialize(rows, cols, row, col)
     super(rows, cols, row, col, nil)
-    @info_text = IO.read(CONTENTS)
-    @text = nil
+    @info_text = File.read(CONTENTS)
+    @text = ""
   end
 
   def text=(str)

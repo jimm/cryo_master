@@ -1,15 +1,23 @@
 NAME = cryo_master
 
-all:
-	crystal build 'src/cryo_master.cr' -o $(NAME)
+.PHONY: all
+all:	build
 
+.PHONY: build
+build:
+	shards build
+
+.PHONY: release
 release:
-	crystal build 'src/cryo_master.cr' -o $(NAME) --release
+	shards build --release
 
+.PHONY: test
 test:
 	crystal spec
 
+.PHONY: spec
 spec:	test
 
+.PHONY: clean
 clean:
 	rm -f $(NAME) $(NAME).dwarf
