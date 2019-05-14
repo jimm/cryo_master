@@ -11,10 +11,10 @@ class Connection
   property input_chan : Int32
   property output : OutputInstrument
   property output_chan : Int32
-  property filter : String?     # TODO
-  property bank_msb : UInt8     # may be IGNORE
-  property bank_lsb : UInt8     # ditto
-  property pc_prog : UInt8      # ditto
+  property filter : String? # TODO
+  property bank_msb : UInt8 # may be IGNORE
+  property bank_lsb : UInt8 # ditto
+  property pc_prog : UInt8  # ditto
   property zone : Range(UInt8, UInt8)
   property xpose : Int32
   property cc_maps = Hash(UInt8, Controller).new
@@ -26,17 +26,17 @@ class Connection
                  @zone = (0_u8..127_u8), @xpose = 0)
   end
 
-  def start(start_messages : Array(LibPortMidi::Message))
-    messages = [] of LibPortMidi::Message
+  def start(start_messages : Array(UInt32))
+    messages = [] of UInt32
     messages += start_messages if start_messages
-    messages << PortMidi.message(CONTROLLER + @output_chan,
-                                 CC_BANK_SELECT_MSB,
-                                 @bank_msb) unless @bank_msb == IGNORE
-    messages << PortMidi.message(CONTROLLER + @output_chan,
-                                 CC_BANK_SELECT_LSB,
-                                 @bank_msb) if @bank_lsb != IGNORE
-    messages << PortMidi.message(PROGRAM_CHANGE + @output_chan,
-                                 @pc_prog, 0) if @pc_prog != IGNORE
+    messages << PortMIDI.message(CONTROLLER + @output_chan,
+      CC_BANK_SELECT_MSB,
+      @bank_msb) unless @bank_msb == IGNORE
+    messages << PortMIDI.message(CONTROLLER + @output_chan,
+      CC_BANK_SELECT_LSB,
+      @bank_msb) if @bank_lsb != IGNORE
+    messages << PortMIDI.message(PROGRAM_CHANGE + @output_chan,
+      @pc_prog, 0) if @pc_prog != IGNORE
     @output.midi_out(messages) unless messages.empty?
     @input.add_connection(self)
   end
@@ -48,7 +48,7 @@ class Connection
 
   def accept_from_input?(msg)
     return true if @input_chan == nil
-    status = PortMidi.message_status(msg)
+    status = PortMIDI.status(msg)
     return true unless status < 0xf0_u8
     (status & 0xff) == @input_chan
   end
@@ -72,7 +72,7 @@ class Connection
 
     bytes_duped = false
 
-    bytes = PortMidi.message_to_bytes(msg)
+    bytes = PortMIDI.bytes(msg)
     high_nibble = bytes[0] & 0xF0_u8
     case high_nibble
     when NOTE_ON, NOTE_OFF, POLY_PRESSURE
@@ -107,7 +107,7 @@ class Connection
     end
 
     if bytes && bytes.size > 0
-      @output.midi_out([PortMidi.message(bytes[0], bytes[1], bytes[2])])
+      @output.midi_out([PortMIDI.message(bytes[0], bytes[1], bytes[2])])
     end
   end
 
@@ -122,7 +122,7 @@ class Connection
   end
 
   def to_s
-    str = "#{@input.name} ch #{@input_chan ? @input_chan+1 : "all"} -> #{@output.name} ch #{@output_chan+1}"
+    str = "#{@input.name} ch #{@input_chan ? @input_chan + 1 : "all"} -> #{@output.name} ch #{@output_chan + 1}"
     str << "; pc #@pc_prog" if pc?
     str << "; xpose #@xpose" if @xpose
     str << "; zone #{note_num_to_name(@zone.begin)}..#{note_num_to_name(@zone.end)}" if @zone

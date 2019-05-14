@@ -4,3 +4,7 @@ shards:
     github: maiha/crt.cr
     version: 0.4.0
 
+  port_midi:
+    github: jimm/crystal_port_midi
+    commit: 084a009ce578a3659c7876b79a0dee6c62af2750
+

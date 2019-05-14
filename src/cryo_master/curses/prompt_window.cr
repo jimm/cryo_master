@@ -18,21 +18,19 @@ class PromptWindow
   end
 
   def draw
-    @win.box('|', '-')
-    @win.setpos(0, 1)
-    @win.attron(A_REVERSE) {
-      @win.addstr(" #@title ")
-    }
+    @win.border
 
-    @win.setpos(1, 1)
-    @win.addstr(@prompt)
+    @win.attribute_on(Crt::Attribute::Reverse)
+    @win.print(0, 1, " #@title ")
+    @win.attribute_off(Crt::Attribute::Reverse)
 
-    @win.setpos(2, 1)
-    @win.attron(A_REVERSE) {
-      @win.addstr(' ' * (@win.maxx() - 2))
-    }
+    @win.print(1, 1, @prompt)
 
-    @win.setpos(2, 1)
+    @win.attribute_on(Crt::Attribute::Reverse)
+    @win.print(2, 1, ' ' * (@win.col - 2))
+    @win.attribute_off(Crt::Attribute::Reverse)
+
+    @win.move(2, 1)
     @win.refresh
   end
 

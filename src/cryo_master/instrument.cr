@@ -6,7 +6,7 @@ class Instrument < Nameable
 
   property sym : String
   property port_num : Int32
-  property port : LibPortMidi::Stream
+  property port : LibPortMIDI::Stream
 
   def initialize(@sym, name, @port_num, @port)
     super(name)
@@ -20,7 +20,7 @@ class InputInstrument < Instrument
   property triggers = Array(Trigger).new
 
   def initialize(sym, name, port_num)
-    LibPortMidi.open_input(out port, port_num, nil, MIDI_BUFSIZ, nil, nil)
+    LibPortMIDI.open_input(out port, port_num, nil, MIDI_BUFSIZ, nil, nil)
     super(sym, name, port_num, port)
   end
 
@@ -58,10 +58,10 @@ class InputInstrument < Instrument
   end
 
   def remember_program_change_messages(msg)
-    status = PortMidi.message_status(msg)
+    status = PortMIDI.status(msg)
     high_nibble = status & 0xf0
     chan = status & 0x0f
-    data1 = PortMidi.message_data1(msg)
+    data1 = PortMIDI.data1(msg)
 
     # TODO
   end
@@ -73,10 +73,10 @@ class InputInstrument < Instrument
 
   # FIXME
   def generate(chan)
-    buf = Array(LibPortMidi::Event).new(MIDI_BUFSIZ)
+    buf = Array(LibPortMIDI::Event).new(MIDI_BUFSIZ)
     while @running
-      if LibPortMidi.poll(@port) == 1
-        n = LibPortMidi.midi_read(@port, pointerof(buf).as(Pointer(Void*)), MIDI_BUFSIZ)
+      if LibPortMIDI.poll(@port) == 1
+        n = LibPortMIDI.midi_read(@port, pointerof(buf).as(Pointer(LibPortMIDI::Event)), MIDI_BUFSIZ)
         read(buf, n)
       else
         sleep(SLEEP_TIMESPAN)
@@ -87,19 +87,19 @@ end
 
 class OutputInstrument < Instrument
   def initialize(sym, name, port_num)
-    LibPortMidi.open_output(out port, port_num, nil, MIDI_BUFSIZ, nil, nil, 0)
+    LibPortMIDI.open_output(out port, port_num, nil, MIDI_BUFSIZ, nil, nil, 0)
     super(sym, name, port_num, port)
   end
 
   # def midi_out(bytes : Array(UInt8))
-  #   LibPortMidi.midi_write(@port, pointerof(bytes), bytes.size)
+  #   LibPortMIDI.midi_write(@port, pointerof(bytes), bytes.size)
   # end
 
-  def midi_out(messages : Array(LibPortMidi::Message))
-    messages.each { |msg| LibPortMidi.midi_write_short(@port, 0, msg) }
+  def midi_out(messages : Array(UInt32))
+    messages.each { |msg| LibPortMIDI.midi_write_short(@port, 0, msg) }
   end
 
-  def midi_out(events : Array(LibPortMidi::Event))
+  def midi_out(events : Array(LibPortMIDI::Event))
     midi_out(events.map(&.message))
   end
 end

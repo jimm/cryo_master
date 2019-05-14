@@ -39,19 +39,19 @@ class Loader
     end
   end
 
-  ORG_MODE_MARKUP = Markup.new('*', "-*+", "#+")
+  ORG_MODE_MARKUP      = Markup.new('*', "-*+", "#+")
   MARKDOWN_MODE_MARKUP = Markup.new('#', "-*+", "```")
 
   WHITESPACE = / \t/
 
   TRIGGER_ACTIONS = {
-    "next song" => Trigger::Action::NEXT_SONG,
-    "prev song" => Trigger::Action::PREV_SONG,
-    "previous song" => Trigger::Action::PREV_SONG,
-    "next patch" => Trigger::Action::NEXT_PATCH,
-    "prev patch" => Trigger::Action::PREV_PATCH,
+    "next song"      => Trigger::Action::NEXT_SONG,
+    "prev song"      => Trigger::Action::PREV_SONG,
+    "previous song"  => Trigger::Action::PREV_SONG,
+    "next patch"     => Trigger::Action::NEXT_PATCH,
+    "prev patch"     => Trigger::Action::PREV_PATCH,
     "previous patch" => Trigger::Action::PREV_PATCH,
-    "message" => Trigger::Action::MESSAGE
+    "message"        => Trigger::Action::MESSAGE,
   }
 
   @cm = CM.new
@@ -72,7 +72,7 @@ class Loader
     error_str = ""
 
     old_cm = CM.instance
-    @cm = CM.new                # side-effect: CM static instance set
+    @cm = CM.new # side-effect: CM static instance set
     File.open(path, "r") do |f|
       determine_markup(path)
       @cm.loaded_from_file = path
@@ -190,10 +190,10 @@ class Loader
     cols = table_columns(line)
     cols[0].downcase
     input = @cm.inputs.find { |i| i.sym.downcase == cols[0] }
-    return unless input         # might be table header, not an error
+    return unless input # might be table header, not an error
 
     trigger_msg = message_from_bytes(cols[1])
-    output_msg = nil : LibPortMidi::Message
+    output_msg = nil : UInt32
     action = TRIGGER_ACTIONS[cols[2]]
     if action == Trigger::Action::MESSAGE
       output_msg = @cm.messages.find { |m| m.name.downcase == cols[3].downcase }
@@ -208,7 +208,7 @@ class Loader
 
   def message_from_bytes(str : String)
     bytes = str.split(/[, ]/).map { |word| word.strip.to_u8(prefix: true) }
-    PortMidi.message(bytes[0], bytes[1], bytes[2])
+    PortMIDI.message(bytes[0], bytes[1], bytes[2])
   end
 
   def parse_song_line(line : String)
@@ -248,7 +248,7 @@ class Loader
   def load_instrument(cols : Array(String), type : InstrumentDirection)
     devid : Int32 = find_device(cols[1], type)
 
-    if devid == LibPortMidi::NO_DEVICE && !@cm.testing?
+    if devid == LibPortMIDI::PmError::InvalidDeviceId && !@cm.testing?
       @error_str = "MIDI port #{cols[1]} not found"
       return
     end
@@ -293,7 +293,7 @@ class Loader
     @notes.clear
   end
 
-  def stop_collecting_notes()
+  def stop_collecting_notes
     # remove trailing blank lines
     while !@notes.empty? && @notes.last == ""
       @notes.pop
@@ -305,7 +305,7 @@ class Loader
     stop_collecting_notes
     if !@notes.empty?
       @song.notes = @notes
-      @notes.clear              # do not dealloc
+      @notes.clear # do not dealloc
     end
 
     p = Patch.new(line)
@@ -340,7 +340,7 @@ class Loader
     @patch.connections << @conn.not_nil!
   end
 
-  def start_and_stop_messages_from_notes()
+  def start_and_stop_messages_from_notes
     state = StartStopState::UNSTARTED
     @notes.each do |note|
       str = note.strip
@@ -399,14 +399,14 @@ class Loader
         next
       end
       case args[0]
-      when 'f'                  # filter
+      when 'f' # filter
         cc.filtered = true
-      when 'm'                  # map
-        cc.translated_cc_num = args[i+1].to_u8
+      when 'm' # map
+        cc.translated_cc_num = args[i + 1].to_u8
         skip = 1
-      when 'l'                 # limit
-        cc.min = args[i+1].to_u8
-        cc.max = args[i+2].to_u8
+      when 'l' # limit
+        cc.min = args[i + 1].to_u8
+        cc.max = args[i + 2].to_u8
         skip = 2
       end
     end
@@ -476,18 +476,18 @@ class Loader
 
     # TODO
     # return if @cm.testing?
-    #   return LibPortMidi::NO_DEVICE
+    #   return LibPortMIDI::NO_DEVICE
 
-    num_devices = LibPortMidi.count_devices
+    num_devices = LibPortMIDI.count_devices
     (0...num_devices).each do |i|
-      device = LibPortMidi.get_device_info(i).value
+      device = LibPortMIDI.get_device_info(i).value
       if device_type == InstrumentDirection::INPUT && device.input && name == String.new(device.name).downcase
         return i
       elsif device_type == InstrumentDirection::OUTPUT && device.output && name == String.new(device.name).downcase
         return i
       end
     end
-    return LibPortMidi::NO_DEVICE
+    return LibPortMIDI::PmError::InvalidDeviceId.value
   end
 
   def header?(const line : String, header : String, level : Int32)

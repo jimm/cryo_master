@@ -16,7 +16,7 @@ class Controller
   end
 
   # Returns a message if there's something to send, else nil
-  def process(msg : LibPortMidi::Message, output_channel : UInt8) : LibPortMidi::Message?
+  def process(msg : UInt32, output_channel : UInt8) : UInt32?
     return nil if filtered
 
     status = CONTROLLER

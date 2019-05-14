@@ -7,7 +7,7 @@ class Trigger
     MESSAGE
   end
 
-  def initialize(@trigger_msg : LibPortMidi::Message,
+  def initialize(@trigger_msg : UInt32,
                  @action : Action,
                  @output_msg : Message?)
     @trigger_msg = trigger_msg

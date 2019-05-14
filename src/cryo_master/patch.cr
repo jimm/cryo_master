@@ -1,13 +1,13 @@
 require "./nameable"
 
 class Patch < Nameable
-  property start_messages : Array(LibPortMidi::Message)
-  property stop_messages : Array(LibPortMidi::Message)
+  property start_messages : Array(UInt32)
+  property stop_messages : Array(UInt32)
   property connections = Array(Connection).new
 
   def initialize(name = "Default Patch",
-                 @start_messages = [] of LibPortMidi::Message,
-                 @stop_messages = [] of LibPortMidi::Message)
+                 @start_messages = [] of UInt32,
+                 @stop_messages = [] of UInt32)
     super(name)
     @running = false
   end

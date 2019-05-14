@@ -8,13 +8,11 @@ class TriggerWindow < CrWindow
 
   def draw
     super
-    pm = PM::PatchMaster.instance
     i = 0
-    pm.inputs.each do |instrument|
+    CM.instance.inputs.each do |instrument|
       instrument.triggers.each do |trigger|
         if i < visible_height
-          @win.setpos(i+1, 1)
-          @win.addstr(make_fit(":#{instrument.sym} #{trigger.to_s}"))
+          @win.print(i + 1, 1, make_fit(":#{instrument.sym} #{trigger.to_s}"))
         end
         i += 1
       end

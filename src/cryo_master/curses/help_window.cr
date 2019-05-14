@@ -1,7 +1,6 @@
 require "crt"
 
 class HelpWindow < CrWindow
-
   CONTENTS = File.join(File.dirname(__FILE__), "info_window_contents.txt")
 
   getter text : String
@@ -16,8 +15,7 @@ class HelpWindow < CrWindow
     super
     i = 0
     @text.each_line do |line|
-      @win.setpos(i+2, 3)
-      @win.addstr(make_fit(line.chomp))
+      @win.print(i + 2, 3, make_fit(line.chomp))
       i += 1
     end
   end

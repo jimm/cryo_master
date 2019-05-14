@@ -1,20 +1,20 @@
 require "crt"
 
 class InfoWindow < CrWindow
-
   CONTENTS = File.join(File.dirname(__FILE__), "info_window_contents.txt")
 
-  getter text : String
+  @info_text : Array(String)
+  getter text : Array(String)
 
   def initialize(rows, cols, row, col)
     super(rows, cols, row, col, nil)
-    @info_text = File.read(CONTENTS)
-    @text = ""
+    @info_text = File.read(CONTENTS).split("\n")
+    @text = [] of String
   end
 
-  def text=(str)
+  def text=(str : Array(String)?)
     if str
-      @text = str
+      @text = str.not_nil!
       @title = "Song Notes"
     else
       @text = @info_text
@@ -25,10 +25,9 @@ class InfoWindow < CrWindow
   def draw
     super
     i = 1
-    @text.each_line do |line|
-      break if i >= @win.maxy - 2
-      @win.setpos(i+1, 1)
-      @win.addstr(make_fit(" #{line.chomp}"))
+    @text.each do |line|
+      break if i >= @win.row - 2
+      @win.print(i + 1, 1, make_fit(" #{line.chomp}"))
       i += 1
     end
   end

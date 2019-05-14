@@ -11,13 +11,10 @@ build:
 release:
 	shards build --release
 
-.PHONY: test
-test:
-	crystal spec
-
 .PHONY: spec
-spec:	test
+spec:
+	crystal spec
 
 .PHONY: clean
 clean:
-	rm -f $(NAME) $(NAME).dwarf
+	rm -rf $(NAME) $(NAME).dwarf bin

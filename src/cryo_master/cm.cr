@@ -15,13 +15,13 @@ class CM
   property all_songs : SortedSongList
   property loaded_from_file = ""
   property messages = [] of Message # TODO hash
-  @song_list : SongList
-  @song : Song?
-  @patch : Patch?
+  getter song_list : SongList
+  getter song : Song?
+  getter patch : Patch?
 
   class_getter(instance) { CM.new }
 
-  def initialize()
+  def initialize
     @all_songs = SortedSongList.new("All Songs")
     @song_lists << @all_songs
     @song_list = @song_lists.first
@@ -49,7 +49,7 @@ class CM
     @song_lists = [] of SongList
     @all_songs = SortedSongList.new("All Songs")
     @song_lists << @all_songs
-    @messages = [] of Message   # TODO hash
+    @messages = [] of Message # TODO hash
 
     clear_cursor
   end
@@ -137,10 +137,10 @@ class CM
     next_patch(@song)
   end
 
-  def next_patch(song : Nil)
-  end
+  def next_patch(song : Song?)
+    return unless song
+    song = song.not_nil!
 
-  def next_patch(song : SongList)
     if song.patches.last == @patch
       next_song
     elsif @patch
@@ -154,10 +154,10 @@ class CM
     prev_patch(@song)
   end
 
-  def prev_patch(song : Nil)
-  end
+  def prev_patch(song : Song?)
+    return unless song
+    song = song.not_nil!
 
-  def prev_patch(song : Song)
     if @song.patches.first == @patch
       prev_song
     elsif @patch
@@ -173,8 +173,8 @@ class CM
     new_song = @@cm.all_songs.find(name_regex) unless new_song
     new_patch = new_song ? new_song.patches.first : nil
 
-    if (new_song && new_song != @song) || # moved to new song
-        (new_song == @song && @patch != new_patch) # same song but not at same first patch
+    if (new_song && new_song != @song) ||         # moved to new song
+       (new_song == @song && @patch != new_patch) # same song but not at same first patch
 
       stop_patch(@patch) if @patch
 
@@ -215,25 +215,25 @@ class CM
   def attempt_goto(c : Cursor)
     # TODO
 
-  #   init
+    #   init
 
-  #   if c->song_list
-  #     @song_list_index =
-  #     find_nearest_match_index(reinterpret_cast<vector<Named *> *>(&pm->song_lists),
-  #                              c->song_list()->name);
+    #   if c->song_list
+    #     @song_list_index =
+    #     find_nearest_match_index(reinterpret_cast<vector<Named *> *>(&pm->song_lists),
+    #                              c->song_list()->name);
 
-  # if (c->song() == 0)
-  #   return;
+    # if (c->song() == 0)
+    #   return;
 
-  # song_index =
-  #   find_nearest_match_index(reinterpret_cast<vector<Named *> *>(&pm->all_songs->songs),
-  #                            c->song()->name);
-  # if (c->patch() != 0)
-  #   patch_index =
-  #     find_nearest_match_index(reinterpret_cast<vector<Named *> *>(&song()->patches),
-  #                              c->patch()->name);
-  # else
-  #   patch_index = 0;
+    # song_index =
+    #   find_nearest_match_index(reinterpret_cast<vector<Named *> *>(&pm->all_songs->songs),
+    #                            c->song()->name);
+    # if (c->patch() != 0)
+    #   patch_index =
+    #     find_nearest_match_index(reinterpret_cast<vector<Named *> *>(&song()->patches),
+    #                              c->patch()->name);
+    # else
+    #   patch_index = 0;
   end
 
   # Remembers the names of the current song list, song, and patch.
@@ -261,7 +261,7 @@ class CM
   # Since names can change we use Damerau-Levenshtein distance on lowercase
   # versions of all strings.
   def restore
-    return unless @song_list_name   # will be nil on initial load
+    return unless @song_list_name # will be nil on initial load
 
     @song_list = find_nearest_match(@cm.song_lists, @song_list_name) || @cm.all_songs
     @song = find_nearest_match(@song_list.songs, @song_name) || @song_list.songs.first

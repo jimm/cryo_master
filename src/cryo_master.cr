@@ -1,5 +1,5 @@
 require "option_parser"
-require "./cryo_master/port_midi"
+require "port_midi"
 require "./cryo_master/cm"
 require "./cryo_master/loader"
 require "./cryo_master/version"
@@ -32,7 +32,9 @@ module CryoMaster
     OptionParser.parse! do |parser|
       parser.banner = "usage: cryo_master [arguments]"
       parser.on("-l", "--list-devices", "List MIDI devices and exit") do
-        list_devices
+        PortMIDI.init
+        PortMIDI.list_all_devices
+        PortMIDI.terminate
         exit(0)
       end
       parser.on("-v", "--version", "List cryo_master version and exit") do
@@ -53,10 +55,12 @@ module CryoMaster
     end
 
     if ARGV.size > 0
+      PortMIDI.init
       cm = Loader.new.load(ARGV[0], testing)
       cm.start
       Main.new(cm).run
       cm.stop
+      PortMIDI.terminate
     else
       STDERR.puts "error: missing file name"
       exit(1)
@@ -64,11 +68,10 @@ module CryoMaster
   end
 
   def list_devices
-    LibPortMidi.initialize()
-    inputs = {} of Int32 => LibPortMidi::DeviceInfo
-    outputs = {} of Int32 => LibPortMidi::DeviceInfo
-    (0...LibPortMidi.count_devices).each do |i|
-      device = LibPortMidi.get_device_info(i).value
+    inputs = {} of Int32 => LibPortMIDI::DeviceInfo
+    outputs = {} of Int32 => LibPortMIDI::DeviceInfo
+    (0...LibPortMIDI.count_devices).each do |i|
+      device = LibPortMIDI.get_device_info(i).value
       if device.input != 0
         inputs[i] = device
       end
@@ -78,10 +81,9 @@ module CryoMaster
     end
     list_io_devices("Inputs", inputs)
     list_io_devices("Outputs", outputs)
-    LibPortMidi.terminate()
   end
 
-  def list_io_devices(title : String, devices : Hash(Int32, LibPortMidi::DeviceInfo))
+  def list_io_devices(title : String, devices : Hash(Int32, LibPortMIDI::DeviceInfo))
     puts title
     devices.each do |index, dev|
       puts "  #{index}: #{String.new(dev.name)}#{dev.opened == 1 ? " (open)" : ""}"

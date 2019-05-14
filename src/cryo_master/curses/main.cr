@@ -11,11 +11,21 @@ class Main
   # TODO
   # FUNCTION_KEY_SYMBOLS = Hash(String, Char)
   # 12.times do |i|
-  #   FUNCTION_KEY_SYMBOLS["f#{i+1}"] = Crt::Key::F1 + i
-  #   FUNCTION_KEY_SYMBOLS["F#{i+1}"] = Crt::Key::F1 + i
+  #   FUNCTION_KEY_SYMBOLS["f#{i+1}"] = (265 + i).chr # Key::F1
+  #   FUNCTION_KEY_SYMBOLS["F#{i+1}"] = (265 + i).chr # Key::F1
   # end
 
   def initialize(@cm : CM)
+    Crt.init
+    Crt.start_color
+
+    @song_lists_win = uninitialized ListWindow
+    @song_list_win = uninitialized ListWindow
+    @song_win = uninitialized ListWindow
+    @patch_win = uninitialized PatchWindow
+    @message_win = uninitialized Crt::Window
+    @trigger_win = uninitialized TriggerWindow
+    @info_win = uninitialized InfoWindow
   end
 
   def run
@@ -27,39 +37,38 @@ class Main
       loop do
         begin
           refresh_all
-          ch = getch
-          message("ch = #{ch}") if @debug # FIXME
+          ch = LibNcursesw.getch
           case ch
-          when 'j', Key::DOWN, ' '
+          when 'j', 258.chr, ' ' # Key::DOWN
             @cm.next_patch
-          when 'k', Key::UP
+          when 'k', 259.chr # Key::UP
             @cm.prev_patch
-          when 'n', Key::RIGHT
+          when 'n', 261.chr # Key::RIGHT
             @cm.next_song
-          when 'p', Key::LEFT
+          when 'p', 260.chr # Key::LEFT
             @cm.prev_song
           when 'g'
             name = PromptWindow.new("Go To Song", "Go to song:").gets
-            @cm.goto_song(name) if name.length > 0
+            @cm.goto_song(name) if name.size > 0
           when 't'
             name = PromptWindow.new("Go To Song List", "Go to Song List:").gets
-            @cm.goto_song_list(name) if name.length > 0
+            @cm.goto_song_list(name) if name.size > 0
           when 'e'
             close_screen
             file = @cm.loaded_file || PromptWindow.new("Edit", "Edit file:").gets
-            edit(file) if file.length > 0
+            edit(file) if file.size > 0
           when 'r'
-            load(@cm.loaded_file) if @cm.loaded_file && @cm.loaded_file.length > 0
+            load(@cm.loaded_file) if @cm.loaded_file && @cm.loaded_file.size > 0
           when 'h', '?'
             help
-          when 27        # "\e" doesn't work here
+          when 27 # "\e" doesn't work here
             # Twice in a row sends individual note-off commands
             message("Sending panic note off messages...")
             @cm.panic(@prev_cmd == 27)
             message("Panic sent")
           when 'l'
             file = PromptWindow.new("Load", "Load file:").gets
-            if file.length > 0
+            if file.size > 0
               begin
                 load(file)
                 message("Loaded #{file}")
@@ -69,7 +78,7 @@ class Main
             end
           when 's'
             file = PromptWindow.new("Save", "Save into file:").gets
-            if file.length > 0
+            if file.size > 0
               begin
                 save(file)
                 message("Saved #{file}")
@@ -79,7 +88,7 @@ class Main
             end
           when 'q'
             break
-          when Key::RESIZE
+          when 410.chr # Key::RESIZE
             resize_windows
           end
           @prev_cmd = ch
@@ -122,8 +131,6 @@ class Main
     @message_win = Crt::Window.new(*g.message_rect)
     @trigger_win = TriggerWindow.new(*g.trigger_rect)
     @info_win = InfoWindow.new(*g.info_rect)
-
-    @message_win.scrollok(false)
   end
 
   def resize_windows
@@ -177,7 +184,7 @@ class Main
     win = HelpWindow.new(*g.help_rect)
     win.draw
     win.refresh
-    getch                       # wait for key and eat it
+    LibNcursesw.getch # wait for key and eat it
   end
 
   def message(str)
@@ -199,25 +206,25 @@ class Main
   def refresh_all
     set_window_data
     wins = [@song_lists_win, @song_list_win, @song_win, @patch_win, @info_win, @trigger_win]
-    wins.map(&:draw)
-    ([stdscr] + wins).map(&:noutrefresh)
-    Curses.doupdate
+    wins.map(&.draw)
+    wins.map(&.win).map(&.refresh)
   end
 
   def set_window_data
-    @song_lists_win.set_contents("Song Lists", @cm.song_lists, :song_list)
+    cm = CM.instance
+    @song_lists_win.set_contents("Song Lists", @cm.song_lists.map { |sl| sl.as(Nameable) }, cm.song_list)
 
     song_list = @cm.song_list
-    @song_list_win.set_contents(song_list.name, song_list.songs, :song)
+    @song_list_win.set_contents(song_list.name, song_list.songs.map { |s| s.as(Nameable) }, cm.song)
 
     song = @cm.song
     if song
-      @song_win.set_contents(song.name, song.patches, :patch)
-      @info_win.text = song.notes
+      @song_win.set_contents(song.not_nil!.name, song.not_nil!.patches.map { |p| p.as(Nameable) }, cm.patch)
+      @info_win.text = song.not_nil!.notes
       patch = @cm.patch
       @patch_win.patch = patch
     else
-      @song_win.set_contents(nil, nil, :patch)
+      @song_win.set_contents(nil, nil, cm.patch)
       @info_win.text = nil
       @patch_win.patch = nil
     end

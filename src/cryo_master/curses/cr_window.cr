@@ -3,7 +3,7 @@ require "crt"
 class CrWindow
   getter win : Crt::Window
   getter title_prefix : String?
-  property title : String
+  property title : String?
   @rows : Int32
   @cols : Int32
   @row : Int32
@@ -28,21 +28,21 @@ class CrWindow
 
   def draw
     @win.clear
-    @win.box('|', '-')
+    @win.border
     return unless @title_prefix || @title
 
-    @win.setpos(0, 1)
-    @win.attron(A_REVERSE) {
-      @win.addch(" ")
-      @win.addstr("#{@title_prefix}: ") if @title_prefix
-      @win.addstr(@title) if @title
-      @win.addch(" ")
-    }
+    @win.move(0, 1)
+    @win.attribute_on(Crt::Attribute::Reverse)
+    @win.print(" ")
+    @win.print("#{@title_prefix}: ") if @title_prefix
+    @win.print(@title.not_nil!) if @title
+    @win.print(" ")
+    @win.attribute_off(Crt::Attribute::Reverse)
   end
 
   # Visible height is height of window minus 2 for the borders.
   def visible_height
-    @win.maxy - 2
+    @win.row - 2
   end
 
   def set_max_contents_len(cols)
@@ -50,7 +50,7 @@ class CrWindow
   end
 
   def make_fit(str)
-    str = str[0..@max_contents_len] if str.length > @max_contents_len
+    str = str[0..@max_contents_len] if str.size > @max_contents_len
     str
   end
 end
