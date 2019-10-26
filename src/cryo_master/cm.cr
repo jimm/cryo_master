@@ -16,17 +16,17 @@ class CM
   property loaded_from_file = ""
   property messages = [] of Message # TODO hash
   getter song_list : SongList
-  getter song : Song?
-  getter patch : Patch?
+  getter song : Song
+  getter patch : Patch
 
-  class_getter(instance) { CM.new }
+  class_getter instance : CM = CM.new
 
   def initialize
     @all_songs = SortedSongList.new("All Songs")
     @song_lists << @all_songs
     @song_list = @song_lists.first
-    @song = nil
-    @patch = nil
+    @song = Song.new
+    @patch = @song.patches.first
 
     # @gui = nil
     # @message_bindings = {}
@@ -114,8 +114,8 @@ class CM
     return if @song_list.songs.last == @song
 
     stop_patch(@patch)
-    @song = sl.songs[sl.songs.index(@song) + 1]
-    @patch = @song.patches.first
+    @song = sl.songs[(sl.songs.index(@song) || -1) + 1]
+    @patch = @song.try(&.patches).try(&.first)
     start_patch(@patch)
   end
 
@@ -128,8 +128,8 @@ class CM
 
   def prev_song(sl : SongList)
     stop_patch(@patch)
-    @song = sl.songs[sl.songs.index(@song) - 1]
-    @patch = @song.patches.first
+    @song = sl.songs[(sl.songs.index(@song) || -1) - 1]
+    @patch = @song.try(&.patches).try(&.first)
     start_patch(@patch)
   end
 
@@ -145,7 +145,7 @@ class CM
       next_song
     elsif @patch
       stop_patch(@patch)
-      @patch = song.patches[song.patches.index(@patch) + 1]
+      @patch = song.patches[(song.patches.index(@patch) || -1) + 1]
       start_patch(@patch)
     end
   end
@@ -158,11 +158,11 @@ class CM
     return unless song
     song = song.not_nil!
 
-    if @song.patches.first == @patch
+    if @song.try(&.patches).try(&.first) == @patch
       prev_song
     elsif @patch
       stop_patch(@patch)
-      @patch = @song.patches[@song.patches.index(@patch) - 1]
+      @patch = @song.patches[(@song.patches.index(@patch) || -1) - 1]
       start_patch(@patch)
     end
   end
@@ -170,37 +170,37 @@ class CM
   def goto_song(name_regex)
     new_song_list = new_song = new_patch = nil
     new_song = @song_list.find(name_regex) if @song_list
-    new_song = @@cm.all_songs.find(name_regex) unless new_song
-    new_patch = new_song ? new_song.patches.first : nil
+    new_song = @all_songs.find(name_regex) unless new_song
+    new_patch = new_song ? new_song.try(&.patches).try(&.first) : nil
 
     if (new_song && new_song != @song) ||         # moved to new song
        (new_song == @song && @patch != new_patch) # same song but not at same first patch
 
       stop_patch(@patch) if @patch
 
-      if @song_list.songs.include?(new_song)
+      if @song_list.songs.includes?(new_song)
         new_song_list = @song_list
       else
-        # Not found in current song list. Switch to @cm.all_songs list.
-        new_song_list = @@cm.all_songs
+        # Not found in current song list. Switch to @all_songs list.
+        new_song_list = @all_songs
       end
 
       @song_list = new_song_list
-      @song = new_song
-      @patch = new_patch
+      @song = new_song.not_nil!
+      @patch = new_patch.not_nil!
       start_patch(@patch)
     end
   end
 
   def goto_song_list(name_regex)
-    name_regex = Regexp.new(name_regex.to_s, true) # make case-insensitive
-    new_song_list = @cm.song_lists.find { |song_list| song_list.name =~ name_regex }
+    name_regex = Regex.new(name_regex.to_s, Regex::Options::IGNORE_CASE)
+    new_song_list = @song_lists.find { |song_list| song_list.name =~ name_regex }
     return unless new_song_list
 
     @song_list = new_song_list
 
     new_song = @song_list.songs.first
-    new_patch = new_song ? new_song.patches.first : nil
+    new_patch = new_song ? new_song.try(&.patches).try(&.first) : nil
 
     if new_patch != @patch
       stop_patch(@patch) if @patch
@@ -263,10 +263,10 @@ class CM
   def restore
     return unless @song_list_name # will be nil on initial load
 
-    @song_list = find_nearest_match(@cm.song_lists, @song_list_name) || @cm.all_songs
+    @song_list = find_nearest_match(@song_lists, @song_list_name) || @all_songs
     @song = find_nearest_match(@song_list.songs, @song_name) || @song_list.songs.first
     if @song
-      @patch = find_nearest_match(@song.patches, @patch_name) || @song.patches.first
+      @patch = find_nearest_match(@song.patches, @patch_name) || @song.try(&.patches).try(&.first)
     else
       @patch = nil : Patch
     end

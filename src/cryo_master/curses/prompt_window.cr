@@ -3,18 +3,16 @@ require "crt"
 class PromptWindow
   MAX_WIDTH = 30
 
-  def initialize(title, prompt)
+  def initialize(title : String, prompt : String)
     @title, @prompt = title, prompt
-    width = cols() / 2
+    width = Crt.x / 2
     width = MAX_WIDTH if width > MAX_WIDTH
-    @win = Crt::Window.new(4, width, lines() / 3, (cols() - width) / 2)
+    @win = Crt::Window.new(4, width, Crt.y / 3, (Crt.x - width) / 2)
   end
 
   def gets
     draw
-    str = read_string
-    cleanup
-    str
+    read_string
   end
 
   def draw
@@ -27,7 +25,7 @@ class PromptWindow
     @win.print(1, 1, @prompt)
 
     @win.attribute_on(Crt::Attribute::Reverse)
-    @win.print(2, 1, ' ' * (@win.col - 2))
+    @win.print(2, 1, " " * (@win.col - 2))
     @win.attribute_off(Crt::Attribute::Reverse)
 
     @win.move(2, 1)
@@ -35,20 +33,19 @@ class PromptWindow
   end
 
   def read_string
-    nocbreak
-    echo
-    curs_set(1)
-    str = nil
-    @win.attron(A_REVERSE) {
-      str = @win.getstr
-    }
-    curs_set(0)
-    noecho
-    cbreak
-    str
-  end
+    LibNcursesw.nocbreak
+    LibNcursesw.echo
+    LibNcursesw.curs_set(1)
+    @win.attribute_on(Crt::Attribute::Reverse)
 
-  def cleanup
-    @win.close
+    bytes = Pointer(UInt8).malloc(1024)
+    LibNcursesw.getnstr(bytes, 1024)
+    str = String.new(bytes)
+
+    @win.attribute_off(Crt::Attribute::Reverse)
+    LibNcursesw.curs_set(0)
+    LibNcursesw.noecho
+    LibNcursesw.cbreak
+    str
   end
 end

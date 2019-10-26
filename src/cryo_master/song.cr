@@ -6,7 +6,7 @@ class Song < Nameable
 
   def initialize(name = "Unnamed")
     super(name)
-    @patches = [] of Patch
+    @patches = [Patch.new]
     CM.instance.all_songs.songs << self
   end
 

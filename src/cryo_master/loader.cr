@@ -71,6 +71,7 @@ class Loader
     retval = 0
     error_str = ""
 
+    # FIXME
     old_cm = CM.instance
     @cm = CM.new # side-effect: CM static instance set
     File.open(path, "r") do |f|

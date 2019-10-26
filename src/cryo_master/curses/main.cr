@@ -218,15 +218,9 @@ class Main
     @song_list_win.set_contents(song_list.name, song_list.songs.map { |s| s.as(Nameable) }, cm.song)
 
     song = @cm.song
-    if song
-      @song_win.set_contents(song.not_nil!.name, song.not_nil!.patches.map { |p| p.as(Nameable) }, cm.patch)
-      @info_win.text = song.not_nil!.notes
-      patch = @cm.patch
-      @patch_win.patch = patch
-    else
-      @song_win.set_contents(nil, nil, cm.patch)
-      @info_win.text = nil
-      @patch_win.patch = nil
-    end
+    @song_win.set_contents(song.name, song.patches.map { |p| p.as(Nameable) }, cm.patch)
+    @info_win.text = song.notes
+    patch = @cm.patch
+    @patch_win.patch = patch
   end
 end
