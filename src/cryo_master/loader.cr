@@ -178,7 +178,6 @@ class Loader
   def parse_message_line(line)
     if header_level?(line, 2)
       @message = Message.new(line[3..-1])
-      @message.messages << message_from_bytes(line)
       @cm.messages << @message
       return
     end
@@ -272,7 +271,6 @@ class Loader
 
     s = Song.new(@cm.all_songs, line)
     @cm.all_songs.songs << s
-    puts "added song #{s.name} to all_songs, size = #{@cm.all_songs.songs.size}" # DEBUG
     @song = s
     @patch = Patch.new
     @conn = nil : Connection

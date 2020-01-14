@@ -15,7 +15,7 @@ class Main
   #   FUNCTION_KEY_SYMBOLS["F#{i+1}"] = (265 + i).chr # Key::F1
   # end
 
-  def initialize(@cm : CM)
+  def initialize
     Crt.init
     Crt.start_color
 
@@ -30,43 +30,43 @@ class Main
   end
 
   def run
-    @cm.start
     begin
       config_curses
       create_windows
 
       loop do
         begin
-          refresh_all
+          refresh_all unless @prev_cmd == -1
+          Fiber.yield
           ch = LibNcursesw.getch
           case ch
           when 'j', 258.chr, ' ' # Key::DOWN
-            @cm.next_patch
+            CM.instance.next_patch
           when 'k', 259.chr # Key::UP
-            @cm.prev_patch
+            CM.instance.prev_patch
           when 'n', 261.chr # Key::RIGHT
-            @cm.next_song
+            CM.instance.next_song
           when 'p', 260.chr # Key::LEFT
-            @cm.prev_song
+            CM.instance.prev_song
           when 'g'
             name = PromptWindow.new("Go To Song", "Go to song:").gets
-            @cm.goto_song(name) if name.size > 0
+            CM.instance.goto_song(Regex.new(name)) if name.size > 0
           when 't'
             name = PromptWindow.new("Go To Song List", "Go to Song List:").gets
-            @cm.goto_song_list(name) if name.size > 0
+            CM.instance.goto_song_list(Regex.new(name)) if name.size > 0
           when 'e'
             # FIXME
             # close_screen
-            file = @cm.loaded_from_file || PromptWindow.new("Edit", "Edit file:").gets
+            file = CM.instance.loaded_from_file || PromptWindow.new("Edit", "Edit file:").gets
             edit(file) if file.size > 0
           when 'r'
-            load(@cm.loaded_from_file.as(String)) if (@cm.loaded_from_file.try(&.size) || 0) > 0
+            load(CM.instance.loaded_from_file.as(String)) if (CM.instance.loaded_from_file.try(&.size) || 0) > 0
           when 'h', '?'
             help
           when 27 # "\e" doesn't work here
             # Twice in a row sends individual note-off commands
             message("Sending panic note off messages...")
-            @cm.panic(@prev_cmd == 27)
+            CM.instance.panic(@prev_cmd == 27)
             message("Panic sent")
           when 'l'
             file = PromptWindow.new("Load", "Load file:").gets
@@ -86,23 +86,23 @@ class Main
           @prev_cmd = ch
         rescue ex
           message(ex.to_s)
-          @cm.debug caller.join("\n")
+          CM.debug caller.join("\n")
         end
 
         # TODO
-        # msg_name = @cm.message_bindings[ch]
-        # @cm.send_message(msg_name) if msg_name
+        # msg_name = CM.instance.message_bindings[ch]
+        # CM.instance.send_message(msg_name) if msg_name
 
         # TODO
-        # code_key = @cm.code_bindings[ch]
+        # code_key = CM.instance.code_bindings[ch]
         # code_key.run if code_key
       end
     ensure
       clear
       refresh
       # close_screen
-      @cm.stop
-      @cm.close_debug_file
+      CM.instance.stop
+      CM.close_debug_file
     end
   end
 
@@ -144,7 +144,7 @@ class Main
   end
 
   def load(file)
-    @cm.load(file)
+    CM.instance.load(file)
   end
 
   # Opens the most recently loaded/saved file name in an editor. After
@@ -157,7 +157,7 @@ class Main
     end
 
     cmd = "#{editor_command} #{file}"
-    @cm.debug(cmd)
+    CM.debug(cmd)
     system(cmd)
     load(file)
   end
@@ -186,7 +186,7 @@ class Main
     else
       STDERR.puts str
     end
-    @cm.debug "#{Time.now} #{str}"
+    CM.debug "#{Time.now} #{str}"
   end
 
   def clear
@@ -207,18 +207,18 @@ class Main
   end
 
   def set_window_data
-    cm = CM.instance
-    @song_lists_win.set_contents("Song Lists", @cm.song_lists.map { |sl| sl.as(Nameable) }, cm.song_list)
+    cursor = CM.instance.cursor
+    @song_lists_win.set_contents("Song Lists", CM.instance.song_lists.map { |sl| sl.as(Nameable) }, cursor.song_list)
 
-    song_list = @cm.song_list
-    @song_list_win.set_contents(song_list.name, song_list.songs.map { |s| s.as(Nameable) }, cm.song)
+    song_list = cursor.song_list
+    @song_list_win.set_contents(cursor.song_list.name, song_list.songs.map { |s| s.as(Nameable) }, cursor.song)
 
-    maybe_song = @cm.song
+    maybe_song = cursor.song
     if maybe_song
       song = maybe_song.as(Song)
-      @song_win.set_contents(song.name, song.patches.map { |p| p.as(Nameable) }, cm.patch)
+      @song_win.set_contents(song.name, song.patches.map { |p| p.as(Nameable) }, cursor.patch)
       @info_win.text = song.notes
-      @patch_win.patch = @cm.patch
+      @patch_win.patch = cursor.patch
     end
   end
 end

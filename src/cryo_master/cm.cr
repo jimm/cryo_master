@@ -3,9 +3,10 @@ require "./song"
 require "./song_list"
 require "./sorted_song_list"
 require "./message"
+require "./cursor"
 
 class CM
-  DEBUG_FILE = "/tmp/pm_debug.txt"
+  DEBUG_FILE = "/tmp/cryo_master_debug.txt"
 
   property? running = false
   property? testing = false
@@ -15,27 +16,49 @@ class CM
   property all_songs : SortedSongList
   property loaded_from_file = ""
   property messages = [] of Message # TODO hash
-  getter song_list : SongList
-  getter song : Song?
-  getter patch : Patch?
+  getter cursor : Cursor
 
-  @@cm_instance = CM.new
+  @@cm_instance = uninitialized CM
+  @@debug = false
+  @@debug_file : File? = nil
 
-  def self.instance
-    @@cm_instance
+  def self.debug=(b : Bool)
+    @@debug = b
+  end
+
+  def self.debug(str : String)
+    return unless @@debug
+    @@debug_file ||= File.open(DEBUG_FILE, "a")
+    @@debug_file.as(File).puts str
+    @@debug_file.as(File).flush
+  end
+
+  def self.close_debug_file
+    return unless @@debug_file
+    @@debug_file.as(File).close
+    @@debug_file = nil
+  end
+
+  def self.instance : CM
+    @@cm_instance ||= CM.new
   end
 
   def initialize
     @all_songs = SortedSongList.new("All Songs")
     @song_lists << @all_songs
-    @song_list = @song_lists.first
-    @song = Song.new(@all_songs)
-    @patch = @song.as(Song).patches.first
+    @cursor = uninitialized Cursor
 
-    # @gui = nil
+    @inputs = [] of InputInstrument
+    @outputs = [] of OutputInstrument
+    @song_lists = [] of SongList
+    @all_songs = SortedSongList.new("All Songs")
+    @song_lists << @all_songs
+    @messages = [] of Message # TODO hash
     # @message_bindings = {}
     # @code_bindings = {}
-    init_data
+
+    @cursor = Cursor.new(self)
+    clear_cursor
 
     @@cm_instance = self
   end
@@ -51,37 +74,25 @@ class CM
   # end
 
   def init_data
-    @inputs = [] of InputInstrument
-    @outputs = [] of OutputInstrument
-    @song_lists = [] of SongList
-    @all_songs = SortedSongList.new("All Songs")
-    @song_lists << @all_songs
-    @messages = [] of Message # TODO hash
-
-    clear_cursor
   end
 
   def clear_cursor
-    # Clear cursor
-    @song_list = @song_lists.first
-    @song = @song_list.songs.first unless @song_list.songs.empty?
-    patches = @song.try(&.patches)
-    @patch = patches.try(&.first) unless patches.try(&.empty?)
-    # Do not erase names saved by #mark.
+    @cursor.clear
   end
 
   def start(init_cursor = true)
     clear_cursor if init_cursor
     @running = true
-    start_patch(@patch)
+    @cursor.patch.try(&.start)
+    start_patch()
     @inputs.each(&.start)
   end
 
   def stop
-    stop_patch(@patch)
+    stop_patch()
     @inputs.map(&.stop)
     @running = false
-    close_debug_file
+    CM.close_debug_file
   end
 
   def send_message(name)
@@ -92,131 +103,54 @@ class CM
     # TODO
   end
 
-  def debug=(b : Bool)
-    @debug = b
+  def stop_curr_patch
+    @cursor.patch.try(&.stop)
   end
 
-  def debug(str : String)
-    return unless @debug
-    @debug_file ||= File.open(DEBUG_FILE, "a")
-    @debug_file.as(File).puts str
-    @debug_file.as(File).flush
-  end
-
-  def close_debug_file
-    return unless @debug && @debug_file
-    @debug_file.as(File).close
-    @debug_file = nil
+  def start_curr_patch
+    @cursor.patch.try(&.start)
   end
 
   # ================ cursor ================
 
   def next_song
-    next_song(@song_list)
-  end
-
-  def next_song(sl : Nil)
-  end
-
-  def next_song(sl : SongList)
-    return if @song_list.songs.last == @song
-
-    stop_patch(@patch)
-    @song = sl.songs[(sl.songs.index(@song) || -1) + 1]
-    @patch = @song.try(&.patches).try(&.first)
-    start_patch(@patch)
+    stop_patch()
+    @cursor.next_song
+    start_patch()
   end
 
   def prev_song
     prev_song(@song_list)
   end
 
-  def prev_song(sl : Nil)
-  end
-
-  def prev_song(sl : SongList)
-    stop_patch(@patch)
-    @song = sl.songs[(sl.songs.index(@song) || -1) - 1]
-    @patch = @song.try(&.patches).try(&.first)
-    start_patch(@patch)
+  def prev_song
+    stop_patch()
+    @cursor.prev_song
+    start_patch()
   end
 
   def next_patch
-    next_patch(@song)
-  end
-
-  def next_patch(song : Song?)
-    return unless song
-    song = song.not_nil!
-
-    if song.patches.last == @patch
-      next_song
-    elsif @patch
-      stop_patch(@patch)
-      @patch = song.patches[(song.patches.index(@patch) || -1) + 1]
-      start_patch(@patch)
-    end
+    stop_patch()
+    @cursor.next_patch
+    start_patch()
   end
 
   def prev_patch
-    prev_patch(@song)
-  end
-
-  def prev_patch(song : Song?)
-    return unless song
-    song = song.not_nil!
-
-    if @song.try(&.patches).try(&.first) == @patch
-      prev_song
-    elsif @patch
-      stop_patch(@patch)
-      patches = @song.as(Song).patches
-      @patch = patches[(patches.index(@patch) || -1) - 1]
-      start_patch(@patch)
-    end
+    stop_patch()
+    @cursor.prev_patch
+    start_patch()
   end
 
   def goto_song(name_regex)
-    new_song_list = new_song = new_patch = nil
-    new_song = @song_list.find(name_regex) if @song_list
-    new_song = @all_songs.find(name_regex) unless new_song
-    new_patch = new_song ? new_song.try(&.patches).try(&.first) : nil
-
-    if (new_song && new_song != @song) ||         # moved to new song
-       (new_song == @song && @patch != new_patch) # same song but not at same first patch
-
-      stop_patch(@patch) if @patch
-
-      if @song_list.songs.includes?(new_song)
-        new_song_list = @song_list
-      else
-        # Not found in current song list. Switch to @all_songs list.
-        new_song_list = @all_songs
-      end
-
-      @song_list = new_song_list
-      @song = new_song.not_nil!
-      @patch = new_patch.not_nil!
-      start_patch(@patch)
-    end
+    stop_patch()
+    @cursor.goto_song(name_regex)
+    start_patch()
   end
 
   def goto_song_list(name_regex)
-    name_regex = Regex.new(name_regex.to_s, Regex::Options::IGNORE_CASE)
-    new_song_list = @song_lists.find { |song_list| song_list.name =~ name_regex }
-    return unless new_song_list
-
-    @song_list = new_song_list
-
-    new_song = @song_list.songs.first
-    new_patch = new_song ? new_song.try(&.patches).try(&.first) : nil
-
-    if new_patch != @patch
-      stop_patch(@patch) if @patch
-      new_patch.start if new_patch
-    end
-    @song = new_song
-    @patch = new_patch
+    stop_patch()
+    @cursor.goto_song_list(name_regex)
+    start_patch()
   end
 
   # Attempt to go to the same song list, song, and patch that old cursor `c`
@@ -248,21 +182,22 @@ class CM
   # Remembers the names of the current song list, song, and patch.
   # Used by #restore.
   def mark
-    @song_list_name = if @song_list
-                        @song_list.name
-                      else
-                        nil : String
-                      end
-    @song_name = if @song
-                   @song.name
-                 else
-                   nil : String
-                 end
-    @patch_name = if @patch
-                    @patch.name
-                  else
-                    nil : String
-                  end
+    # FIXME
+    # @song_list_name = if @song_list
+    #                     @song_list.name
+    #                   else
+    #                     nil : String
+    #                   end
+    # @song_name = if @song
+    #                @song.name
+    #              else
+    #                nil : String
+    #              end
+    # @patch_name = if @patch
+    #                 @patch.name
+    #               else
+    #                 nil : String
+    #               end
   end
 
   # Using the names saved by #save, try to find them now.
@@ -270,15 +205,16 @@ class CM
   # Since names can change we use Damerau-Levenshtein distance on lowercase
   # versions of all strings.
   def restore
-    return unless @song_list_name # will be nil on initial load
+    # FIXME
+    # return unless @song_list_name # will be nil on initial load
 
-    @song_list = find_nearest_match(@song_lists, @song_list_name) || @all_songs
-    @song = find_nearest_match(@song_list.songs, @song_name) || @song_list.songs.first
-    if @song
-      @patch = find_nearest_match(@song.patches, @patch_name) || @song.try(&.patches).try(&.first)
-    else
-      @patch = nil : Patch
-    end
+    # @song_list = find_nearest_match(@song_lists, @song_list_name) || @all_songs
+    # @song = find_nearest_match(@song_list.songs, @song_name) || @song_list.songs.first
+    # if @song
+    #   @patch = find_nearest_match(@song.patches, @patch_name) || @song.try(&.patches).try(&.first)
+    # else
+    #   @patch = nil : Patch
+    # end
   end
 
   # List must contain objects that respond to #name. If +str+ is nil or
@@ -291,20 +227,12 @@ class CM
     list[distances.index(distances.min)]
   end
 
-  def start_patch(patch : Nil)
-    puts "we have no patch, nothing to do" # DEBUG
+  def start_patch
+    @cursor.patch.try(&.start)
   end
 
-  def start_patch(patch : Patch)
-    puts "we have a non-nil patch, starting" # DEBUG
-    patch.start
-  end
-
-  def stop_patch(patch : Nil)
-  end
-
-  def stop_patch(patch : Patch)
-    patch.stop
+  def stop_patch
+    @cursor.patch.try(&.stop)
   end
 
   # DEBUG

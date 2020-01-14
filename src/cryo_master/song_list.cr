@@ -10,8 +10,7 @@ class SongList < Nameable
     @songs
   end
 
-  def find(regex_str : String) : Song?
-    regex = Regex.new(regex_str)
-    @songs.find { |s| regex.match(s.name) }
+  def find(regex : Regex) : Song?
+    @songs.find { |s| regex.match(s.name, 0, Regex::Options::IGNORE_CASE) }
   end
 end

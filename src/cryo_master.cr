@@ -42,7 +42,7 @@ module CryoMaster
         exit(0)
       end
       parser.on("-n", "--no-midi", "No MIDI (for testing and .cm file debugging)") { testing = true }
-      parser.on("-d", "--debug", "Debug output to /tmp/cm_debug.txt") { debug = true }
+      parser.on("-d", "--debug", "Debug output to #{CM::DEBUG_FILE}") { CM.debug = true }
       parser.on("-h", "--help", "Show this help") do
         puts parser
         exit(0)
@@ -58,7 +58,7 @@ module CryoMaster
       PortMIDI.init
       cm = Loader.new.load(ARGV[0], testing)
       cm.start
-      Main.new(cm).run
+      Main.new.run
       cm.stop
       PortMIDI.terminate
     else

@@ -3,7 +3,7 @@ class PatchWindow < CrWindow
 
   def initialize(rows, cols, row, col, title_prefix)
     super
-    @patch = CM.instance.patch
+    @patch = CM.instance.cursor.patch
   end
 
   def patch=(patch : Patch?)
