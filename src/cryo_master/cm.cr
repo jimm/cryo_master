@@ -16,26 +16,33 @@ class CM
   property loaded_from_file = ""
   property messages = [] of Message # TODO hash
   getter song_list : SongList
-  getter song : Song
-  getter patch : Patch
+  getter song : Song?
+  getter patch : Patch?
 
-  class_getter instance : CM = CM.new
+  @@cm_instance = CM.new
+
+  def self.instance
+    @@cm_instance
+  end
 
   def initialize
     @all_songs = SortedSongList.new("All Songs")
     @song_lists << @all_songs
     @song_list = @song_lists.first
-    @song = Song.new
-    @patch = @song.patches.first
+    @song = Song.new(@all_songs)
+    @patch = @song.as(Song).patches.first
 
     # @gui = nil
     # @message_bindings = {}
     # @code_bindings = {}
     init_data
+
+    @@cm_instance = self
   end
 
-  # def load(file)
-  # end
+  def load(file)
+    # TODO
+  end
 
   # def bind_message(name, key)
   # end
@@ -85,21 +92,22 @@ class CM
     # TODO
   end
 
-  # def debug=(b : Bool)
-  #   @debug = b
-  # end
+  def debug=(b : Bool)
+    @debug = b
+  end
 
-  # def debug(str : String)
-  #   return unless @debug
-  #   @debug_file ||= File.open(DEBUG_FILE, "a")
-  #   @debug_file.puts str
-  #   @debug_file.flush
-  # end
+  def debug(str : String)
+    return unless @debug
+    @debug_file ||= File.open(DEBUG_FILE, "a")
+    @debug_file.as(File).puts str
+    @debug_file.as(File).flush
+  end
 
-  # def close_debug_file
-  #   return unless @debug && @debug_file
-  #   @debug_file.close
-  # end
+  def close_debug_file
+    return unless @debug && @debug_file
+    @debug_file.as(File).close
+    @debug_file = nil
+  end
 
   # ================ cursor ================
 
@@ -162,7 +170,8 @@ class CM
       prev_song
     elsif @patch
       stop_patch(@patch)
-      @patch = @song.patches[(@song.patches.index(@patch) || -1) - 1]
+      patches = @song.as(Song).patches
+      @patch = patches[(patches.index(@patch) || -1) - 1]
       start_patch(@patch)
     end
   end

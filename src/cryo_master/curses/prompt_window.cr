@@ -5,9 +5,9 @@ class PromptWindow
 
   def initialize(title : String, prompt : String)
     @title, @prompt = title, prompt
-    width = Crt.x / 2
+    width = Crt.x // 2
     width = MAX_WIDTH if width > MAX_WIDTH
-    @win = Crt::Window.new(4, width, Crt.y / 3, (Crt.x - width) / 2)
+    @win = Crt::Window.new(4, width, Crt.y // 3, (Crt.x - width) // 2)
   end
 
   def gets

@@ -26,6 +26,7 @@ class Main
     @message_win = uninitialized Crt::Window
     @trigger_win = uninitialized TriggerWindow
     @info_win = uninitialized InfoWindow
+    @prev_cmd = 0
   end
 
   def run
@@ -54,11 +55,12 @@ class Main
             name = PromptWindow.new("Go To Song List", "Go to Song List:").gets
             @cm.goto_song_list(name) if name.size > 0
           when 'e'
-            close_screen
-            file = @cm.loaded_file || PromptWindow.new("Edit", "Edit file:").gets
+            # FIXME
+            # close_screen
+            file = @cm.loaded_from_file || PromptWindow.new("Edit", "Edit file:").gets
             edit(file) if file.size > 0
           when 'r'
-            load(@cm.loaded_file) if @cm.loaded_file && @cm.loaded_file.size > 0
+            load(@cm.loaded_from_file.as(String)) if (@cm.loaded_from_file.try(&.size) || 0) > 0
           when 'h', '?'
             help
           when 27 # "\e" doesn't work here
@@ -76,16 +78,6 @@ class Main
                 message(ex.to_s)
               end
             end
-          when 's'
-            file = PromptWindow.new("Save", "Save into file:").gets
-            if file.size > 0
-              begin
-                save(file)
-                message("Saved #{file}")
-              rescue ex
-                message(ex.to_s)
-              end
-            end
           when 'q'
             break
           when 410.chr # Key::RESIZE
@@ -97,10 +89,13 @@ class Main
           @cm.debug caller.join("\n")
         end
 
-        msg_name = @cm.message_bindings[ch]
-        @cm.send_message(msg_name) if msg_name
-        code_key = @cm.code_bindings[ch]
-        code_key.run if code_key
+        # TODO
+        # msg_name = @cm.message_bindings[ch]
+        # @cm.send_message(msg_name) if msg_name
+
+        # TODO
+        # code_key = @cm.code_bindings[ch]
+        # code_key.run if code_key
       end
     ensure
       clear
@@ -144,22 +139,18 @@ class Main
     @info_win.move_and_resize(g.info_rect)
 
     r = g.message_rect
-    @message_win.move(r[2], r[3])
-    @message_win.resize(r[0], r[1])
+    # Crt does not implement resize
+    @message_win = Crt::Window.new(*r)
   end
 
   def load(file)
     @cm.load(file)
   end
 
-  def save(file)
-    @cm.save(file)
-  end
-
   # Opens the most recently loaded/saved file name in an editor. After
   # editing, the file is re-loaded.
   def edit(file)
-    editor_command = find_editor
+    editor_command = find_editor()
     unless editor_command
       message("Can not find $VISUAL, $EDITOR, vim, or vi on your path")
       return
@@ -174,8 +165,8 @@ class Main
   # Return the first legit command from $VISUAL, $EDITOR, vim, vi, and
   # notepad.exe.
   def find_editor
-    @editor ||= [ENV["VISUAL"], ENV["EDITOR"], "vim", "vi", "notepad.exe"].compact.detect do |cmd|
-      system("which", cmd) || File.exist?(cmd)
+    [ENV["VISUAL"], ENV["EDITOR"], "vim", "vi", "notepad.exe"].compact.find("vi") do |cmd|
+      system("which", [cmd]) || File.exists?(cmd)
     end
   end
 
@@ -190,12 +181,17 @@ class Main
   def message(str)
     if @message_win
       @message_win.clear
-      @message_win.addstr(str)
+      @message_win.print(str)
       @message_win.refresh
     else
       STDERR.puts str
     end
     @cm.debug "#{Time.now} #{str}"
+  end
+
+  def clear
+    wins = [@song_lists_win, @song_list_win, @song_win, @patch_win, @info_win, @trigger_win]
+    wins.map(&.clear)
   end
 
   # Public method callable by triggers
@@ -217,10 +213,12 @@ class Main
     song_list = @cm.song_list
     @song_list_win.set_contents(song_list.name, song_list.songs.map { |s| s.as(Nameable) }, cm.song)
 
-    song = @cm.song
-    @song_win.set_contents(song.name, song.patches.map { |p| p.as(Nameable) }, cm.patch)
-    @info_win.text = song.notes
-    patch = @cm.patch
-    @patch_win.patch = patch
+    maybe_song = @cm.song
+    if maybe_song
+      song = maybe_song.as(Song)
+      @song_win.set_contents(song.name, song.patches.map { |p| p.as(Nameable) }, cm.patch)
+      @info_win.text = song.notes
+      @patch_win.patch = @cm.patch
+    end
   end
 end

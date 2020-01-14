@@ -7,7 +7,7 @@ class HelpWindow < CrWindow
 
   def initialize(rows, cols, row, col)
     super(rows, cols, row, col, nil)
-    @text = IO.read(CONTENTS)
+    @text = File.read(CONTENTS)
     @title = "PatchMaster Help"
   end
 

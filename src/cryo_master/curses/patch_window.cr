@@ -1,14 +1,14 @@
 class PatchWindow < CrWindow
-  getter patch : Patch
+  getter patch : Patch?
 
   def initialize(rows, cols, row, col, title_prefix)
     super
     @patch = CM.instance.patch
   end
 
-  def patch=(patch : Patch)
+  def patch=(patch : Patch?)
     @patch = patch
-    @title = @patch.name
+    @title = @patch ? @patch.as(Patch).name : ""
     draw
   end
 
@@ -18,7 +18,7 @@ class PatchWindow < CrWindow
     draw_headers
     return unless @patch
 
-    @patch.connections[0, visible_height].each_with_index do |connection, i|
+    @patch.as(Patch).connections[0, visible_height].each_with_index do |connection, i|
       @win.move(i + 2, 1)
       draw_connection(connection)
     end

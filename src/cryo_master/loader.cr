@@ -54,16 +54,15 @@ class Loader
     "message"        => Trigger::Action::MESSAGE,
   }
 
-  @cm = CM.new
-  @song = Song.new
-  @patch = Patch.new
-  @conn : Connection?
-  @message = Message.new("dummy")
-  @error_str = ""
-  @markup = ORG_MODE_MARKUP
-  @notes = [] of String
-
   def initialize
+    @cm = CM.new
+    @song = Song.new(@cm.all_songs)
+    @patch = Patch.new
+    @conn = uninitialized Connection
+    @message = Message.new("dummy")
+    @error_str = ""
+    @markup = ORG_MODE_MARKUP
+    @notes = [] of String
     clear
   end
 
@@ -101,7 +100,7 @@ class Loader
     @section = Section::IGNORE
     @notes_state = NoteState::OUTSIDE
     @song_list = nil : SongList
-    @song = Song.new
+    @song = Song.new(@cm.all_songs)
     @patch = Patch.new
     @conn = nil
     @message = Message.new("dummy")
@@ -271,7 +270,7 @@ class Loader
   def load_song(line : String)
     ensure_song_has_patch if @song
 
-    s = Song.new(line)
+    s = Song.new(@cm.all_songs, line)
     @cm.all_songs.songs << s
     puts "added song #{s.name} to all_songs, size = #{@cm.all_songs.songs.size}" # DEBUG
     @song = s

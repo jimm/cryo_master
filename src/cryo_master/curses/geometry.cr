@@ -3,7 +3,6 @@ require "crt"
 # Defines positions and sizes of windows. Rects contain [height, width, top,
 # left], which is the order used by Curses::Window.new.
 class Geometry
-
   @top_height : Int32
   @bot_height : Int32
   @top_width : Int32
@@ -13,11 +12,11 @@ class Geometry
   @info_left : Int32
 
   def initialize
-    @top_height = (Crt.y - 1) * 2 / 3
+    @top_height = (Crt.y - 1) * 2 // 3
     @bot_height = (Crt.y - 1) - @top_height
-    @top_width = Crt.x / 3
+    @top_width = Crt.x // 3
 
-    @sls_height = @top_height / 3
+    @sls_height = @top_height // 3
     @sl_height = @top_height - @sls_height
 
     @info_width = Crt.x - (@top_width * 2)
@@ -45,7 +44,7 @@ class Geometry
   end
 
   def message_rect
-    {1, Crt.x, Crt.y-1, 0}
+    {1, Crt.x, Crt.y - 1, 0}
   end
 
   def info_rect

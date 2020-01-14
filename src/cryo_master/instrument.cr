@@ -14,7 +14,7 @@ class Instrument < Nameable
 end
 
 class InputInstrument < Instrument
-  SLEEP_TIMESPAN = Time::Span.new(nanoseconds: 1e7.to_i64) # 10 milliseconds
+  SLEEP_TIMESPAN = Time::Span.new(nanoseconds: 2e6.to_i64) # 2 milliseconds
 
   property connections = Array(Connection).new
   property triggers = Array(Trigger).new
@@ -35,9 +35,7 @@ class InputInstrument < Instrument
   def start
     puts "starting input #{@name}" # DEBUG
     @running = true
-    channel = Channel(Array(UInt8)).new
-    # FIXME
-    spawn generate(channel)
+    spawn { read_thread() }
   end
 
   def stop
@@ -71,8 +69,7 @@ class InputInstrument < Instrument
     @connections
   end
 
-  # FIXME
-  def generate(chan)
+  def read_thread
     buf = Array(LibPortMIDI::Event).new(MIDI_BUFSIZ)
     while @running
       if LibPortMIDI.poll(@port) == 1

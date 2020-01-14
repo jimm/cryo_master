@@ -4,10 +4,10 @@ class Song < Nameable
   property patches : Array(Patch)
   property notes = Array(String).new
 
-  def initialize(name = "Unnamed")
+  def initialize(all_songs_list, name = "Unnamed")
     super(name)
     @patches = [Patch.new]
-    CM.instance.all_songs.songs << self
+    all_songs_list.songs << self
   end
 
   def <<(patch)

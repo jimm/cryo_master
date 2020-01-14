@@ -21,8 +21,8 @@ class CrWindow
   end
 
   def move_and_resize(rect)
-    @win.move(rect[2], rect[3])
-    @win.resize(rect[0], rect[1])
+    # The crt library doesn't implement resize.
+    @win = Crt::Window.new(*rect)
     set_max_contents_len(rect[1])
   end
 
