@@ -120,10 +120,6 @@ class CM
   end
 
   def prev_song
-    prev_song(@song_list)
-  end
-
-  def prev_song
     stop_patch()
     @cursor.prev_song
     start_patch()
@@ -233,10 +229,5 @@ class CM
 
   def stop_patch
     @cursor.patch.try(&.stop)
-  end
-
-  # DEBUG
-  def dump
-    pp self
   end
 end

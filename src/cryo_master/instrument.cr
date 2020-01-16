@@ -33,7 +33,6 @@ class InputInstrument < Instrument
   end
 
   def start
-    puts "starting input #{@name}" # DEBUG
     @running = true
     spawn { read_thread() }
   end

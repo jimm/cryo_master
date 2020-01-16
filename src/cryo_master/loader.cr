@@ -56,14 +56,14 @@ class Loader
 
   def initialize
     @cm = CM.new
-    @song = Song.new(@cm.all_songs)
-    @patch = Patch.new
+    @song = uninitialized Song
+    @patch = uninitialized Patch
     @conn = uninitialized Connection
-    @message = Message.new("dummy")
+    @message = uninitialized Message
     @error_str = ""
     @markup = ORG_MODE_MARKUP
     @notes = [] of String
-    clear
+    @section = Section::IGNORE
   end
 
   def load(path : String, testing : Bool)
@@ -77,12 +77,12 @@ class Loader
       determine_markup(path)
       @cm.loaded_from_file = path
       @cm.testing = testing
-      clear
       while !error? && (line = f.gets(true)) != nil
         parse_line(line) if line
       end
       ensure_song_has_patch
     end
+    @cm.cursor.init
     @cm
   end
 
@@ -94,21 +94,7 @@ class Loader
     @error_str
   end
 
-  def clear
-    ensure_song_has_patch
-
-    @section = Section::IGNORE
-    @notes_state = NoteState::OUTSIDE
-    @song_list = nil : SongList
-    @song = Song.new(@cm.all_songs)
-    @patch = Patch.new
-    @conn = nil
-    @message = Message.new("dummy")
-    @notes = Array(String).new
-  end
-
   def enter_section(sec)
-    clear()
     @section = sec
   end
 
@@ -267,12 +253,9 @@ class Loader
   end
 
   def load_song(line : String)
-    ensure_song_has_patch if @song
-
-    s = Song.new(@cm.all_songs, line)
-    @cm.all_songs.songs << s
-    @song = s
-    @patch = Patch.new
+    @song = Song.new(line)
+    @patch = @song.patches.first
+    @cm.all_songs.songs << @song
     @conn = nil : Connection
     start_collecting_notes
   end
@@ -504,7 +487,7 @@ class Loader
 
   def table_row?(const line : String)
     line = line.strip
-    line[0] == '|' && line[1] != '-'
+    line.size >= 2 && line[0] == '|' && line[1] != '-'
   end
 
   def markup_block_command?(const line : String)

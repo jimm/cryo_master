@@ -1,13 +1,9 @@
 class SongList < Nameable
-  @songs : Array(Song)
+  getter songs : Array(Song)
 
   def initialize(name)
     super
     @songs = [] of Song
-  end
-
-  def songs
-    @songs
   end
 
   def find(regex : Regex) : Song?

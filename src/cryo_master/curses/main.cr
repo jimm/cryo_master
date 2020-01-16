@@ -101,8 +101,6 @@ class Main
       clear
       refresh
       # close_screen
-      CM.instance.stop
-      CM.close_debug_file
     end
   end
 

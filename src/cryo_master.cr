@@ -72,12 +72,8 @@ module CryoMaster
     outputs = {} of Int32 => LibPortMIDI::DeviceInfo
     (0...LibPortMIDI.count_devices).each do |i|
       device = LibPortMIDI.get_device_info(i).value
-      if device.input != 0
-        inputs[i] = device
-      end
-      if device.output != 0
-        outputs[i] = device
-      end
+      inputs[i] = device if device.input != 0
+      outputs[i] = device if device.output != 0
     end
     list_io_devices("Inputs", inputs)
     list_io_devices("Outputs", outputs)

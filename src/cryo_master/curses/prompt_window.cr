@@ -19,7 +19,7 @@ class PromptWindow
     @win.border
 
     @win.attribute_on(Crt::Attribute::Reverse)
-    @win.print(0, 1, " #@title ")
+    @win.print(0, 1, " #{@title} ")
     @win.attribute_off(Crt::Attribute::Reverse)
 
     @win.print(1, 1, @prompt)
