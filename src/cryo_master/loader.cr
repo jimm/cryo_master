@@ -34,15 +34,14 @@ class Loader
     property header_char : Char
     property list_chars : String
     property block_marker_prefix : String
+    property quote_prefix : String?
 
-    def initialize(@header_char, @list_chars, @block_marker_prefix)
+    def initialize(@header_char, @list_chars, @block_marker_prefix, @quote_prefix)
     end
   end
 
-  ORG_MODE_MARKUP      = Markup.new('*', "-*+", "#+")
-  MARKDOWN_MODE_MARKUP = Markup.new('#', "-*+", "```")
-
-  WHITESPACE = / \t/
+  ORG_MODE_MARKUP      = Markup.new('*', "-*+", "#+", ":")
+  MARKDOWN_MODE_MARKUP = Markup.new('#', "-*+", "```", nil)
 
   TRIGGER_ACTIONS = {
     "next song"      => Trigger::Action::NEXT_SONG,
@@ -54,12 +53,15 @@ class Loader
     "message"        => Trigger::Action::MESSAGE,
   }
 
+  @song : Song?
+  @message : Message?
+
   def initialize
     @cm = CM.new
-    @song = uninitialized Song
+    @song = nil
     @patch = uninitialized Patch
     @conn = uninitialized Connection
-    @message = uninitialized Message
+    @message = nil
     @error_str = ""
     @markup = ORG_MODE_MARKUP
     @notes = [] of String
@@ -100,9 +102,9 @@ class Loader
 
   def parse_line(line : String)
     start = 0
-    if @notes_state == NoteState::OUTSIDE
-      return if line.strip.empty? || markup_block_command?(line)
-    end
+
+    return if line.strip.empty? && @notes_state != NoteState::COLLECTING
+    return if markup_block_command?(line)
 
     # Header lines must start at beginning of the line, so don't skip past
     # whitespace quite yet.
@@ -132,8 +134,8 @@ class Loader
       return
     end
 
-    # Now we can strip leading whitespace.
-    line = line.strip
+    # Now we can strip leading quote prefix and surrounding whitespace.
+    line = strip_leading_chars_and_trailing_whitespace(line)
 
     case @section
     when Section::INSTRUMENTS
@@ -155,18 +157,22 @@ class Loader
     cols = table_columns(line)
     case cols[0]
     when "in"
-      load_instrument(cols, InstrumentDirection::INPUT)
+      load_instrument(cols[1..], InstrumentDirection::INPUT)
     when "out"
-      load_instrument(cols, InstrumentDirection::OUTPUT)
+      load_instrument(cols[1..], InstrumentDirection::OUTPUT)
     end
   end
 
   def parse_message_line(line)
     if header_level?(line, 2)
       @message = Message.new(line[3..-1])
-      @cm.messages << @message
+      @cm.messages << @message.not_nil!
       return
     end
+
+    return if @message.nil?
+
+    @message.not_nil!.messages << message_from_bytes(line)
   end
 
   def parse_trigger_line(line)
@@ -192,8 +198,17 @@ class Loader
   end
 
   def message_from_bytes(str : String)
-    bytes = str.split(/[, ]/).map { |word| word.strip.to_u8(prefix: true) }
-    PortMIDI.message(bytes[0], bytes[1], bytes[2])
+    bytes = str.split(/[, ]+/).map { |word| word.to_u8(prefix: true) }
+    case bytes.size
+    when 0
+      raise "missing message bytes"
+    when 1
+      PortMIDI.message(bytes[0], 0, 0)
+    when 2
+      PortMIDI.message(bytes[0], bytes[1], 0)
+    else
+      PortMIDI.message(bytes[0], bytes[1], bytes[2])
+    end
   end
 
   def parse_song_line(line : String)
@@ -231,15 +246,15 @@ class Loader
   end
 
   def load_instrument(cols : Array(String), type : InstrumentDirection)
-    devid : Int32 = find_device(cols[1], type)
+    devid : Int32 = find_device(cols[0], type)
 
     if devid == LibPortMIDI::PmError::InvalidDeviceId && !@cm.testing?
       @error_str = "MIDI port #{cols[1]} not found"
       return
     end
 
-    sym = cols[0]
-    name = cols[3]
+    sym = cols[1]
+    name = cols[2]
     case type
     when InstrumentDirection::INPUT
       @cm.inputs << InputInstrument.new(sym, name, devid)
@@ -254,15 +269,15 @@ class Loader
 
   def load_song(line : String)
     @song = Song.new(line)
-    @patch = @song.patches.first
-    @cm.all_songs.songs << @song
+    @patch = @song.not_nil!.patches.first
+    @cm.all_songs.songs << @song.not_nil!
     @conn = nil : Connection
     start_collecting_notes
   end
 
   def save_notes_line(line : String)
     if @notes_state == NoteState::SKIPPING_BLANK_LINES
-      return unless line.starts_with?(WHITESPACE)
+      return unless line.starts_with?(/\s+/)
     end
 
     @notes_state = NoteState::COLLECTING
@@ -285,12 +300,12 @@ class Loader
   def load_patch(line : String)
     stop_collecting_notes
     if !@notes.empty?
-      @song.notes = @notes
+      @song.not_nil!.notes = @notes
       @notes.clear # do not dealloc
     end
 
     p = Patch.new(line)
-    @song.patches << p
+    @song.not_nil!.patches << p
     @patch = p
     @conn = nil
 
@@ -347,21 +362,26 @@ class Loader
   end
 
   def instrument_not_found(type_name : String, sym : String)
-    error_str = "song #{@song.name}, patch #{@patch.name}: #{type_name} #{sym} not found"
+    error_str = "song #{@song.not_nil!.name}, patch #{@patch.name}: #{type_name} #{sym} not found"
   end
 
   def load_prog(line : String)
-    @conn.not_nil!.pc_prog = line.split(WHITESPACE)[1].to_u8
+    @conn.not_nil!.pc_prog = line.split(/\s+/)[1].to_u8
   end
 
   def load_bank(line : String)
     args = comma_sep_args(line, true)
-    @conn.not_nil!.bank_msb = args[0].to_u8
-    @conn.not_nil!.bank_lsb = args[1].to_u8
+    if args.size == 1
+      @conn.not_nil!.bank_msb = Connection::IGNORE
+      @conn.not_nil!.bank_lsb = args[0].to_u8
+    else
+      @conn.not_nil!.bank_msb = args[0].to_u8
+      @conn.not_nil!.bank_lsb = args[1].to_u8
+    end
   end
 
   def load_xpose(line : String)
-    @conn.not_nil!.xpose = line.split(WHITESPACE)[1].to_i
+    @conn.not_nil!.xpose = line.split(/\s+/)[1].to_i
   end
 
   def load_zone(line : String)
@@ -370,16 +390,17 @@ class Loader
   end
 
   def load_controller(line : String)
-    args = whitespace_sep_args(line)
-    cc = @conn.not_nil!.cc_maps[args[0].to_i]
-    args = whitespace_sep_args(line)
+    cc = Controller.new
+    args = comma_sep_args(line, true)
+    @conn.not_nil!.cc_maps[args[0].to_u8] = cc
     skip = 0
-    args.each_with_index do |args, i|
+    args.shift
+    args.each_with_index do |arg, i|
       if skip > 0
         skip -= 1
         next
       end
-      case args[0]
+      case arg[0]
       when 'f' # filter
         cc.filtered = true
       when 'm' # map
@@ -410,10 +431,10 @@ class Loader
   end
 
   def ensure_song_has_patch
-    return if @song == nil || !@song.patches.empty?
+    return if @song == nil || !@song.not_nil!.patches.empty?
 
     p = Patch.new
-    @song.patches << p
+    @song.not_nil!.patches << p
 
     @cm.inputs.each do |input|
       s = input.sym.downcase
@@ -429,18 +450,17 @@ class Loader
   # the list as a list of strings. The contents should NOT be freed, since
   # they are a destructive mutation of `line`.
   def whitespace_sep_args(line : String)
-    words = line.split(WHITESPACE)
+    words = line.split(/\s+/)
     words.shift
     words
   end
 
-  # Skips first word on line, splits rest of line on commas, and returns the
-  # list as a list of strings. The contents should NOT be freed, since they
-  # are a destructive mutation of `line`.
+  # Splits words by whitespace and commas, skips the first word, and returns
+  # the rest as an array of strings.
   def comma_sep_args(line : String, skip_word)
-    words = line.split(",")
+    words = line.split(/[,\s]+/)
     words.shift if skip_word
-    words
+    words.map(&.strip)
   end
 
   def table_columns(line : String)
@@ -482,7 +502,7 @@ class Loader
   end
 
   def list_item?(line : String)
-    @markup.list_chars.includes?(line[0]) && line[1] == ' '
+    line.size > 2 && @markup.list_chars.includes?(line[0]) && line[1] == ' '
   end
 
   def table_row?(const line : String)
@@ -492,6 +512,13 @@ class Loader
 
   def markup_block_command?(const line : String)
     line.downcase.starts_with?(@markup.block_marker_prefix)
+  end
+
+  def strip_leading_chars_and_trailing_whitespace(line : String)
+    if @markup.quote_prefix && line.starts_with?(@markup.quote_prefix.not_nil!)
+      line = line[@markup.quote_prefix.not_nil!.size..]
+    end
+    line.strip
   end
 
   def determine_markup(path : String)

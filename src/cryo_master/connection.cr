@@ -86,7 +86,15 @@ class Connection
 
       bytes[0] = high_nibble + @output_chan
       bytes[1] = ((bytes[1] + @xpose) & 0xff) if @xpose
-    when CONTROLLER, PROGRAM_CHANGE, CHANNEL_PRESSURE, PITCH_BEND
+    when CONTROLLER
+      controller = @cc_maps[bytes[1]]?
+      new_msg = controller.not_nil!.process(bytes, @output_chan) if controller
+      if new_msg
+        bytes = PortMIDI.bytes(new_msg)
+      else
+        bytes = nil
+      end
+    when PROGRAM_CHANGE, CHANNEL_PRESSURE, PITCH_BEND
       if bytes[0] != high_nibble + @output_chan
         bytes = bytes.dup
         bytes_duped = true

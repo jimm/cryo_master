@@ -29,7 +29,7 @@ module CryoMaster
   def run
     debug = false
     testing = false
-    OptionParser.parse! do |parser|
+    OptionParser.parse do |parser|
       parser.banner = "usage: cryo_master [arguments]"
       parser.on("-l", "--list-devices", "List MIDI devices and exit") do
         PortMIDI.init

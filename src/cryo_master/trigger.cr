@@ -7,11 +7,10 @@ class Trigger
     MESSAGE
   end
 
-  def initialize(@trigger_msg : UInt32,
-                 @action : Action,
-                 @output_msg : Message?)
-    @trigger_msg = trigger_msg
-    @action = action
-    @output_msg = output_msg
+  getter trigger_msg : UInt32
+  getter action : Action
+  getter output_message : Message?
+
+  def initialize(@trigger_msg, @action, @output_message)
   end
 end

@@ -184,7 +184,7 @@ class Main
     else
       STDERR.puts str
     end
-    CM.debug "#{Time.now} #{str}"
+    CM.debug "#{Time.local} #{str}"
   end
 
   def clear

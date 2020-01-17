@@ -1,3 +1,4 @@
+require "port_midi"
 require "./nameable"
 require "./trigger"
 
