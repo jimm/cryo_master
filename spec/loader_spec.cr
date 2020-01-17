@@ -115,9 +115,9 @@ describe Loader do
     p.connections.size.should eq 2
     conn = p.connections.first
     conn.input.should eq cm.inputs.first
-    conn.input_chan.should eq -1
+    conn.input_chan.should eq Connection::IGNORE
     conn.output.should eq cm.outputs.first
-    conn.output_chan.should eq -1
+    conn.output_chan.should eq Connection::IGNORE
 
     s = cm.all_songs.songs.find { |s| s.name == "Another Song" }.not_nil!
     p = s.patches.last

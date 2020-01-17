@@ -437,7 +437,7 @@ class Loader
       s = input.sym.downcase
       output = @cm.outputs.find { |i| i.sym.downcase == s }
       if output
-        conn = Connection.new(input, -1, output, -1)
+        conn = Connection.new(input, Connection::IGNORE, output, Connection::IGNORE)
         p.connections << conn
       end
     end
@@ -465,8 +465,8 @@ class Loader
   end
 
   def chan_from_word(word)
-    return -1 if word == "all"
-    word.to_i - 1
+    return Connection::IGNORE if word == "all"
+    (word.to_i - 1).to_u8
   end
 
   def find_device(name, device_type : InstrumentDirection) : Int32

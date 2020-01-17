@@ -8,9 +8,9 @@ class Connection
   IGNORE = 128_u8
 
   property input : InputInstrument
-  property input_chan : Int32
+  property input_chan : UInt8
   property output : OutputInstrument
-  property output_chan : Int32
+  property output_chan : UInt8
   property filter : String? # TODO
   property bank_msb : UInt8 # may be IGNORE
   property bank_lsb : UInt8 # ditto
@@ -47,10 +47,10 @@ class Connection
   end
 
   def accept_from_input?(msg)
-    return true if @input_chan == nil
+    return true if @input_chan == IGNORE
     status = PortMIDI.status(msg)
     return true unless status < 0xf0_u8
-    (status & 0xff) == @input_chan
+    (status & 0x0f) == @input_chan
   end
 
   # Returns true if the +@zone+ is nil (allowing all notes throught) or if
@@ -78,13 +78,13 @@ class Connection
     when NOTE_ON, NOTE_OFF, POLY_PRESSURE
       return unless inside_zone?(bytes[1])
 
-      if bytes[0] != high_nibble + @output_chan || (@xpose && @xpose != 0)
+      if (@output_chan != IGNORE && bytes[0] != high_nibble + @output_chan) || (@xpose && @xpose != 0)
         duped_bytes = bytes.dup
         bytes = duped_bytes
         bytes_duped = true
       end
 
-      bytes[0] = high_nibble + @output_chan
+      bytes[0] = high_nibble + @output_chan if @output_chan != IGNORE
       bytes[1] = ((bytes[1] + @xpose) & 0xff) if @xpose
     when CONTROLLER
       controller = @cc_maps[bytes[1]]?
@@ -95,7 +95,7 @@ class Connection
         bytes = nil
       end
     when PROGRAM_CHANGE, CHANNEL_PRESSURE, PITCH_BEND
-      if bytes[0] != high_nibble + @output_chan
+      if (@output_chan != IGNORE && bytes[0] != high_nibble + @output_chan)
         bytes = bytes.dup
         bytes_duped = true
         bytes[0] = high_nibble + @output_chan
