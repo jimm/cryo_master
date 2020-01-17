@@ -6,7 +6,7 @@ class Song < Nameable
 
   def initialize(name = "Unnamed")
     super(name)
-    @patches = [Patch.new]
+    @patches = [] of Patch
   end
 
   def <<(patch)

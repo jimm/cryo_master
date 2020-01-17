@@ -54,12 +54,13 @@ class Loader
   }
 
   @song : Song?
+  @patch : Patch?
   @message : Message?
 
   def initialize
     @cm = CM.new
     @song = nil
-    @patch = uninitialized Patch
+    @patch = nil
     @conn = uninitialized Connection
     @message = nil
     @error_str = ""
@@ -269,24 +270,20 @@ class Loader
 
   def load_song(line : String)
     @song = Song.new(line)
-    @patch = @song.not_nil!.patches.first
+    @patch = nil
     @cm.all_songs.songs << @song.not_nil!
     @conn = nil : Connection
     start_collecting_notes
   end
 
   def save_notes_line(line : String)
-    if @notes_state == NoteState::SKIPPING_BLANK_LINES
-      return unless line.starts_with?(/\s+/)
-    end
-
     @notes_state = NoteState::COLLECTING
     @notes << line
   end
 
   def start_collecting_notes
     @notes_state = NoteState::SKIPPING_BLANK_LINES
-    @notes.clear
+    @notes = [] of String
   end
 
   def stop_collecting_notes
@@ -300,8 +297,8 @@ class Loader
   def load_patch(line : String)
     stop_collecting_notes
     if !@notes.empty?
-      @song.not_nil!.notes = @notes
-      @notes.clear # do not dealloc
+      @song.not_nil!.notes = @notes.dup
+      @notes = [] of String
     end
 
     p = Patch.new(line)
@@ -333,7 +330,7 @@ class Loader
     out_chan = chan_from_word(args[3])
 
     @conn = Connection.new(input, in_chan, output, out_chan)
-    @patch.connections << @conn.not_nil!
+    @patch.not_nil!.connections << @conn.not_nil!
   end
 
   def start_and_stop_messages_from_notes
@@ -350,19 +347,19 @@ class Loader
       else
         case state
         when StartStopState::START_MESSAGES
-          @patch.start_messages << message_from_bytes(str)
+          @patch.not_nil!.start_messages << message_from_bytes(str)
         when StartStopState::STOP_MESSAGES
-          @patch.stop_messages << message_from_bytes(str)
+          @patch.not_nil!.stop_messages << message_from_bytes(str)
         when StartStopState::UNSTARTED
           break
         end
       end
     end
-    @notes.clear
+    @notes = [] of String
   end
 
   def instrument_not_found(type_name : String, sym : String)
-    error_str = "song #{@song.not_nil!.name}, patch #{@patch.name}: #{type_name} #{sym} not found"
+    error_str = "song #{@song.not_nil!.name}, patch #{@patch.not_nil!.name}: #{type_name} #{sym} not found"
   end
 
   def load_prog(line : String)
