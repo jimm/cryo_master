@@ -116,7 +116,7 @@ describe Connection do
 
   it "connection_cc_processed" do
     conn = create_conn()
-    cc = Controller.new
+    cc = Controller.new(7_u8)
     cc.filtered = true
     conn.cc_maps[7] = cc
 

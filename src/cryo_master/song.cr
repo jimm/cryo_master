@@ -1,4 +1,5 @@
 require "./nameable"
+require "./patch"
 
 class Song < Nameable
   property patches : Array(Patch)

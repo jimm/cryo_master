@@ -137,15 +137,15 @@ class CM
     start_patch()
   end
 
-  def goto_song(name_regex)
+  def goto_song(name_regex_str)
     stop_patch()
-    @cursor.goto_song(name_regex)
+    @cursor.goto_song(name_regex_str)
     start_patch()
   end
 
-  def goto_song_list(name_regex)
+  def goto_song_list(name_regex_str)
     stop_patch()
-    @cursor.goto_song_list(name_regex)
+    @cursor.goto_song_list(name_regex_str)
     start_patch()
   end
 

@@ -1,9 +1,12 @@
 require "port_midi"
 require "./nameable"
 require "./trigger"
+require "./consts"
 
 class Instrument < Nameable
   MIDI_BUFSIZ = 128
+
+  include Consts
 
   property sym : String
   property port_num : Int32
@@ -25,6 +28,8 @@ class InputInstrument < Instrument
 
   property connections = Array(Connection).new
   property triggers = Array(Trigger).new
+  getter note_off_conns : Array(Array(Array(Connection)?))
+  getter sustain_off_conns : Array(Array(Connection)?)
 
   def initialize(sym, name, port_num)
     if Instrument.real_port?(port_num)
@@ -32,6 +37,10 @@ class InputInstrument < Instrument
     else
       port = nil
     end
+    @note_off_conns = (0...MIDI_CHANNELS).map do |chan|
+      Array(Array(Connection)?).new(NOTES_PER_CHANNEL, nil)
+    end
+    @sustain_off_conns = Array(Array(Connection)?).new(MIDI_CHANNELS, nil)
     super(sym, name, port_num, port)
   end
 
@@ -50,9 +59,6 @@ class InputInstrument < Instrument
 
   def stop
     @running = false
-  end
-
-  def midi_in(bytes)
   end
 
   def read(buf, len)
@@ -81,15 +87,42 @@ class InputInstrument < Instrument
     # TODO
   end
 
-  def connections_for_message(msg)
-    # TODO
-    @connections
+  # Return the connections to use for *msg*. Normally it's the same as our
+  # list of connections. However for every note on we store those
+  # connections so we can use them later for the corresponding note off.
+  # Same for sustain controller messages.
+  def connections_for_message(msg) : Array(Connection)
+    status = PortMIDI.status(msg)
+    high_nibble = status & 0xf0
+    chan = status & 0x0f
+    data1 = PortMIDI.data1(msg)
+
+    # Note off messages must be sent to their original connections, so for
+    # incoming note on messages we store the current connections in
+    # note_off_conns.
+    case high_nibble
+    when NOTE_OFF
+      return @note_off_conns[chan][data1].not_nil!
+    when NOTE_ON
+      # Velocity 0 means we should use the note-off connections.
+      return @note_off_conns[chan][data1].not_nil! if PortMIDI.data2(msg) == 0
+      @note_off_conns[chan][data1] = @connections.dup
+      return @connections
+    when CONTROLLER
+      if data1 == CC_SUSTAIN
+        return @sustain_off_conns[chan].not_nil! if PortMIDI.data2(msg) == 0
+        @sustain_off_conns[chan] = @connections.dup
+      end
+      return @connections
+    else
+      return @connections
+    end
   end
 
   def read_thread
     buf = Array(LibPortMIDI::Event).new(MIDI_BUFSIZ)
     while @running
-      if Input.real_port?(@port_num) && LibPortMIDI.poll(@port.not_nil!) == 1
+      if Instrument.real_port?(@port_num) && LibPortMIDI.poll(@port.not_nil!) == 1
         n = LibPortMIDI.midi_read(@port.not_nil!, pointerof(buf).as(Pointer(LibPortMIDI::Event)), MIDI_BUFSIZ)
         read(buf, n)
       else

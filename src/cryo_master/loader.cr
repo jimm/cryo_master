@@ -1,4 +1,5 @@
 require "./connection"
+require "./song"
 require "./formatter"
 
 class Loader
@@ -387,9 +388,11 @@ class Loader
   end
 
   def load_controller(line : String)
-    cc = Controller.new
     args = comma_sep_args(line, true)
-    @conn.not_nil!.cc_maps[args[0].to_u8] = cc
+    cc_num = args[0].to_u8
+    cc = Controller.new(cc_num)
+    @conn.not_nil!.cc_maps[cc_num] = cc
+
     skip = 0
     args.shift
     args.each_with_index do |arg, i|

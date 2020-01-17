@@ -3,16 +3,19 @@ class Controller
 
   include Consts
 
-  property cc_num : UInt8 = IGNORE
+  property cc_num : UInt8
   property translated_cc_num : UInt8 = IGNORE # IGNORE means no translation
   property min : UInt8 = 0_u8
   property max : UInt8 = 127_u8
   property? filtered = false
 
+  def initialize(@cc_num)
+  end
+
   # Returns true if this controller will modify the original by filtering,
   # translating, or clamping.
   def will_modify?
-    filtered? || translated_cc_num != IGNORE || min != 0 || max != IGNORE
+    filtered? || translated_cc_num != IGNORE || min != 0_u8 || max != 127_u8
   end
 
   # Returns a message if there's something to send, else nil

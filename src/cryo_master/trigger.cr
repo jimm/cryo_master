@@ -1,3 +1,5 @@
+require "./message"
+
 class Trigger
   enum Action
     NEXT_SONG

@@ -29,13 +29,14 @@ class Connection
   def start(start_messages : Array(UInt32))
     messages = [] of UInt32
     messages += start_messages if start_messages
-    messages << PortMIDI.message(CONTROLLER + @output_chan,
+    out_chan = @output_chan == IGNORE ? (@input_chan == IGNORE ? 0 : @input_chan) : @output_chan
+    messages << PortMIDI.message(CONTROLLER + out_chan,
       CC_BANK_SELECT_MSB,
       @bank_msb) unless @bank_msb == IGNORE
-    messages << PortMIDI.message(CONTROLLER + @output_chan,
+    messages << PortMIDI.message(CONTROLLER + out_chan,
       CC_BANK_SELECT_LSB,
       @bank_msb) if @bank_lsb != IGNORE
-    messages << PortMIDI.message(PROGRAM_CHANGE + @output_chan,
+    messages << PortMIDI.message(PROGRAM_CHANGE + out_chan,
       @pc_prog, 0) if @pc_prog != IGNORE
     @output.midi_out(messages) unless messages.empty?
     @input.add_connection(self)
@@ -88,11 +89,13 @@ class Connection
       bytes[1] = ((bytes[1] + @xpose) & 0xff) if @xpose
     when CONTROLLER
       controller = @cc_maps[bytes[1]]?
-      new_msg = controller.not_nil!.process(bytes, @output_chan) if controller
-      if new_msg
-        bytes = PortMIDI.bytes(new_msg)
-      else
-        bytes = nil
+      if controller
+        new_msg = controller.not_nil!.process(bytes, @output_chan) if controller
+        if new_msg
+          bytes = PortMIDI.bytes(new_msg)
+        else
+          bytes = nil
+        end
       end
     when PROGRAM_CHANGE, CHANNEL_PRESSURE, PITCH_BEND
       if (@output_chan != IGNORE && bytes[0] != high_nibble + @output_chan)
@@ -116,6 +119,7 @@ class Connection
 
     if bytes && bytes.size > 0
       @output.midi_out([PortMIDI.message(bytes[0], bytes[1], bytes[2])])
+    else
     end
   end
 
