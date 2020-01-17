@@ -276,17 +276,13 @@ class Loader
   end
 
   def save_notes_line(line : String)
-    if @notes_state == NoteState::SKIPPING_BLANK_LINES
-      return unless line.starts_with?(/\s+/)
-    end
-
     @notes_state = NoteState::COLLECTING
     @notes << line
   end
 
   def start_collecting_notes
     @notes_state = NoteState::SKIPPING_BLANK_LINES
-    @notes.clear
+    @notes = [] of String
   end
 
   def stop_collecting_notes
@@ -300,8 +296,8 @@ class Loader
   def load_patch(line : String)
     stop_collecting_notes
     if !@notes.empty?
-      @song.not_nil!.notes = @notes
-      @notes.clear # do not dealloc
+      @song.not_nil!.notes = @notes.dup
+      @notes = [] of String
     end
 
     p = Patch.new(line)
@@ -358,7 +354,7 @@ class Loader
         end
       end
     end
-    @notes.clear
+    @notes = [] of String
   end
 
   def instrument_not_found(type_name : String, sym : String)

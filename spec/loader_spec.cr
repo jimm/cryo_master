@@ -68,22 +68,20 @@ describe Loader do
     end
   end
 
-  # FIXME
+  it "loads notes" do
+    cm = load_test_file()
 
-  # it "loads notes" do
-  #   cm = load_test_file()
+    s = cm.all_songs.songs[0]
+    s.notes.size.should eq 0
 
-  #   s = cm.all_songs.songs[0]
-  #   s.notes.size.should eq 0
-
-  #   s = cm.all_songs.songs[1]
-  #   s.notes.size.should eq 3
-  #   [
-  #     "the line before begin_example contains only whitespace",
-  #     "this song has note text",
-  #     "that spans multiple lines",
-  #   ].each_with_index do |str, i|
-  #     s.notes[i].should eq str
-  #   end
-  # end
+    s = cm.all_songs.songs[1]
+    s.notes.size.should eq 3
+    [
+      "the line before begin_example contains only whitespace",
+      "this song has note text",
+      "that spans multiple lines",
+    ].each_with_index do |str, i|
+      s.notes[i].should eq str
+    end
+  end
 end
