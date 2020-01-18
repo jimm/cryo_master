@@ -50,10 +50,10 @@ class Main
             CM.instance.prev_song
           when 'g'
             name = PromptWindow.new("Go To Song", "Go to song:").gets
-            CM.instance.goto_song(Regex.new(name)) if name.size > 0
+            CM.instance.goto_song(name) if name.size > 0
           when 't'
             name = PromptWindow.new("Go To Song List", "Go to Song List:").gets
-            CM.instance.goto_song_list(Regex.new(name)) if name.size > 0
+            CM.instance.goto_song_list(name) if name.size > 0
           when 'e'
             # FIXME
             # close_screen

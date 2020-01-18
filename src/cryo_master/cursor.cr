@@ -74,10 +74,11 @@ class Cursor
     end
   end
 
-  def goto_song(name_regex)
+  def goto_song(name_regex_str)
+    regex = Regex.new(".*#{name_regex_str}", options: Regex::Options::IGNORE_CASE)
     new_song_list = new_song = new_patch = nil
-    new_song = @song_list.find(name_regex) if @song_list
-    new_song = CM.instance.all_songs.find(name_regex) unless new_song
+    new_song = @song_list.songs.find { |s| regex.match(s.name) } if @song_list
+    new_song = CM.instance.all_songs.songs.find { |s| regex.match(s.name) } unless new_song
     new_patch = new_song ? new_song.patches.first : nil
 
     if (new_song && new_song != @song) ||         # moved to new song
@@ -96,8 +97,9 @@ class Cursor
     end
   end
 
-  def goto_song_list(name_regex)
-    new_song_list = @cm.song_lists.find { |song_list| name_regex.match(song_list.name, 0, Regex::Options::IGNORE_CASE) }
+  def goto_song_list(name_regex_str)
+    regex = Regex.new(".*#{name_regex_str}", options: Regex::Options::IGNORE_CASE)
+    new_song_list = @cm.song_lists.find { |song_list| regex.match(song_list.name) }
     return unless new_song_list
 
     @song_list = new_song_list

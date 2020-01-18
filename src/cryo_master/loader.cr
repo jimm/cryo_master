@@ -1,4 +1,5 @@
 require "./connection"
+require "./song"
 require "./formatter"
 
 class Loader
@@ -54,12 +55,13 @@ class Loader
   }
 
   @song : Song?
+  @patch : Patch?
   @message : Message?
 
   def initialize
     @cm = CM.new
     @song = nil
-    @patch = uninitialized Patch
+    @patch = nil
     @conn = uninitialized Connection
     @message = nil
     @error_str = ""
@@ -269,7 +271,7 @@ class Loader
 
   def load_song(line : String)
     @song = Song.new(line)
-    @patch = @song.not_nil!.patches.first
+    @patch = nil
     @cm.all_songs.songs << @song.not_nil!
     @conn = nil : Connection
     start_collecting_notes
@@ -329,7 +331,7 @@ class Loader
     out_chan = chan_from_word(args[3])
 
     @conn = Connection.new(input, in_chan, output, out_chan)
-    @patch.connections << @conn.not_nil!
+    @patch.not_nil!.connections << @conn.not_nil!
   end
 
   def start_and_stop_messages_from_notes
@@ -346,9 +348,9 @@ class Loader
       else
         case state
         when StartStopState::START_MESSAGES
-          @patch.start_messages << message_from_bytes(str)
+          @patch.not_nil!.start_messages << message_from_bytes(str)
         when StartStopState::STOP_MESSAGES
-          @patch.stop_messages << message_from_bytes(str)
+          @patch.not_nil!.stop_messages << message_from_bytes(str)
         when StartStopState::UNSTARTED
           break
         end
@@ -358,7 +360,7 @@ class Loader
   end
 
   def instrument_not_found(type_name : String, sym : String)
-    error_str = "song #{@song.not_nil!.name}, patch #{@patch.name}: #{type_name} #{sym} not found"
+    error_str = "song #{@song.not_nil!.name}, patch #{@patch.not_nil!.name}: #{type_name} #{sym} not found"
   end
 
   def load_prog(line : String)
@@ -386,9 +388,11 @@ class Loader
   end
 
   def load_controller(line : String)
-    cc = Controller.new
     args = comma_sep_args(line, true)
-    @conn.not_nil!.cc_maps[args[0].to_u8] = cc
+    cc_num = args[0].to_u8
+    cc = Controller.new(cc_num)
+    @conn.not_nil!.cc_maps[cc_num] = cc
+
     skip = 0
     args.shift
     args.each_with_index do |arg, i|
@@ -436,7 +440,7 @@ class Loader
       s = input.sym.downcase
       output = @cm.outputs.find { |i| i.sym.downcase == s }
       if output
-        conn = Connection.new(input, -1, output, -1)
+        conn = Connection.new(input, Connection::IGNORE, output, Connection::IGNORE)
         p.connections << conn
       end
     end
@@ -464,8 +468,8 @@ class Loader
   end
 
   def chan_from_word(word)
-    return -1 if word == "all"
-    word.to_i - 1
+    return Connection::IGNORE if word == "all"
+    (word.to_i - 1).to_u8
   end
 
   def find_device(name, device_type : InstrumentDirection) : Int32

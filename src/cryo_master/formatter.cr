@@ -1,10 +1,10 @@
 module Formatter
-  NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+  NOTE_NAMES   = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
   NOTE_OFFSETS = [9, 11, 0, 2, 4, 5, 7]
 
   def note_num_to_name(num : UInt8)
-    oct = (num / 12) - 1
-    note = NOTE_NAMES[num % 12]
+    oct = (num.to_i // 12) - 1
+    note = NOTE_NAMES[num.to_i % 12]
     "#{note}#{oct}"
   end
 
@@ -15,18 +15,18 @@ module Formatter
 
     from_c = NOTE_OFFSETS[ch.ord - 'a'.ord]
     accidental = 0
-    num_start = str[1..-1].downcase
+    num_start = str[1..].downcase
     case num_start[0]
     when 's', '#'
       accidental = 1
-      num_start = num_start[1..-1]
+      num_start = num_start[1..]
     when 'f', 'b'
       accidental = -1
-      num_start = num_start[1..-1]
+      num_start = num_start[1..]
     end
 
     octave = (num_start.to_i + 1) * 12
-    ((octave + from_c + accidental).to_u8 && 0xff_u8).as(UInt8)
+    ((octave + from_c + accidental) & 0xff).to_u8
   end
 
   # TODO for GUI

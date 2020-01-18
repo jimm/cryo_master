@@ -3,37 +3,40 @@ class Controller
 
   include Consts
 
-  property cc_num : UInt8 = IGNORE
+  property cc_num : UInt8
   property translated_cc_num : UInt8 = IGNORE # IGNORE means no translation
   property min : UInt8 = 0_u8
   property max : UInt8 = 127_u8
   property? filtered = false
 
+  def initialize(@cc_num)
+  end
+
   # Returns true if this controller will modify the original by filtering,
   # translating, or clamping.
   def will_modify?
-    filtered || translated_cc_num != IGNORE || min != 0 || max != IGNORE
+    filtered? || translated_cc_num != IGNORE || min != 0_u8 || max != 127_u8
   end
 
   # Returns a message if there's something to send, else nil
-  def process(msg : UInt32, output_channel : UInt8) : UInt32?
-    return nil if filtered
+  def process(bytes, output_channel : UInt8) : UInt32?
+    return nil if filtered?
 
     status = CONTROLLER
-    data1 = message_data1(msg)
-    data2 = message_data2(msg)
+    data1 = bytes[1]
+    data2 = bytes[2]
 
-    if output_chan != IGNORE
-      status += output_chan
+    if output_channel != IGNORE
+      status += output_channel
     else
-      status += data1 & 0x0f
+      status += bytes[0] & 0x0f
     end
 
     if translated_cc_num != IGNORE
       data1 = translated_cc_num
     end
 
-    message(status, data, clamp(data2))
+    PortMIDI.message(status, data1, clamp(data2))
   end
 
   def clamp(val : UInt8)

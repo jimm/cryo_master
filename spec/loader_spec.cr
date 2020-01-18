@@ -71,10 +71,7 @@ describe Loader do
   it "loads notes" do
     cm = load_test_file()
 
-    s = cm.all_songs.songs[0]
-    s.notes.size.should eq 0
-
-    s = cm.all_songs.songs[1]
+    s = cm.all_songs.songs.find { |s| s.name == "Another Song" }.not_nil!
     s.notes.size.should eq 3
     [
       "the line before begin_example contains only whitespace",
@@ -83,5 +80,81 @@ describe Loader do
     ].each_with_index do |str, i|
       s.notes[i].should eq str
     end
+  end
+
+  it "loads patches" do
+    cm = load_test_file()
+
+    s = cm.all_songs.songs.find { |s| s.name == "To Each His Own" }.not_nil!
+    s.patches.size.should eq 2
+    p = s.patches.first
+    p.name.should eq "Vanilla Through, Filter Two's Sustain"
+  end
+
+  it "loads start and stop messages" do
+    cm = load_test_file()
+    s = cm.all_songs.songs.find { |s| s.name == "Another Song" }.not_nil!
+    p = s.patches.last
+
+    p.start_messages.size.should eq 3
+    p.start_messages[0].should eq PortMIDI.message(0xb0, 0x7a, 0x00)
+    p.start_messages[1].should eq PortMIDI.message(0xb0, 7, 127)
+    p.start_messages[2].should eq PortMIDI.message(0xb1, 7, 127)
+
+    p.stop_messages.size.should eq 3
+    p.stop_messages[0].should eq PortMIDI.message(0xb2, 7, 127)
+    p.stop_messages[1].should eq PortMIDI.message(0xb3, 7, 127)
+    p.stop_messages[2].should eq PortMIDI.message(0xb0, 0x7a, 127)
+  end
+
+  it "loads connections" do
+    cm = load_test_file()
+
+    s = cm.all_songs.songs.find { |s| s.name == "To Each His Own" }.not_nil!
+    p = s.patches.first
+    p.connections.size.should eq 2
+    conn = p.connections.first
+    conn.input.should eq cm.inputs.first
+    conn.input_chan.should eq Connection::IGNORE
+    conn.output.should eq cm.outputs.first
+    conn.output_chan.should eq Connection::IGNORE
+
+    s = cm.all_songs.songs.find { |s| s.name == "Another Song" }.not_nil!
+    p = s.patches.last
+    p.connections.size.should eq 2
+    conn = p.connections.first
+    conn.input_chan.should eq 2
+    conn.output_chan.should eq 3
+  end
+
+  it "loads connection values" do
+    cm = load_test_file()
+    s = cm.all_songs.songs.find { |s| s.name == "To Each His Own" }.not_nil!
+
+    p = s.patches.first
+    conn = p.connections.first
+    conn.xpose.should eq 0
+    conn.zone.should eq (0_u8..127_u8)
+
+    conn = p.connections.last
+    conn.pc_prog.should eq 12
+    conn.bank_msb.should eq 3
+    conn.bank_lsb.should eq 2
+
+    p = s.patches[1]
+    conn = p.connections.last
+    conn.pc_prog.should eq Connection::IGNORE
+    conn.bank_msb.should eq Connection::IGNORE
+    conn.bank_lsb.should eq 5
+    conn.xpose.should eq -12
+
+    s = cm.all_songs.songs.find { |s| s.name == "Another Song" }.not_nil!
+    p = s.patches.first
+
+    conn = p.connections[0]
+    conn.zone.should eq (0_u8..63_u8)
+
+    conn = p.connections[1]
+    conn.zone.should eq (64_u8..127_u8)
   end
 end

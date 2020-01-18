@@ -1,4 +1,5 @@
 require "./nameable"
+require "./patch"
 
 class Song < Nameable
   property patches : Array(Patch)
@@ -6,7 +7,7 @@ class Song < Nameable
 
   def initialize(name = "Unnamed")
     super(name)
-    @patches = [Patch.new]
+    @patches = [] of Patch
   end
 
   def <<(patch)
