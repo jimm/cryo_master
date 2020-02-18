@@ -1,6 +1,24 @@
-require "./consts"
+progrequire "./consts"
 require "./instrument"
 require "./controller"
+
+macro is_status(b)
+  (({{b}}) & 0x80) == 0x80
+end
+
+macro is_realtime(b)
+  (({{b}}) >= 0xf8)
+end
+
+class Program
+  IGNORE = 128_u8
+
+  propery bank_msb : UInt8
+  propery bank_lsb : UInt8
+  property prog : UInt8
+
+  def initialize(@bank_msb = IGNORE, @bank_lsb = IGNORE, @prog = IGNORE)
+  end
 
 class Connection
   include Consts
@@ -12,9 +30,7 @@ class Connection
   property output : OutputInstrument
   property output_chan : UInt8
   property filter : String? # TODO
-  property bank_msb : UInt8 # may be IGNORE
-  property bank_lsb : UInt8 # ditto
-  property pc_prog : UInt8  # ditto
+  property prog : Program
   property zone : Range(UInt8, UInt8)
   property xpose : Int32
   property cc_maps = Hash(UInt8, Controller).new
@@ -22,42 +38,33 @@ class Connection
   NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
   def initialize(@input, @input_chan, @output, @output_chan, @filter = nil,
-                 @bank_msb = IGNORE, @bank_lsb = IGNORE, @pc_prog = IGNORE,
-                 @zone = (0_u8..127_u8), @xpose = 0)
+                 @prog = Program.new(), @zone = (0_u8..127_u8), @xpose = 0)
+    @pass_through_sysex = false
+    @processing_sysex = false
   end
 
   def start(start_messages : Array(UInt32))
-    messages = [] of UInt32
-    messages += start_messages if start_messages
-    out_chan = @output_chan == IGNORE ? (@input_chan == IGNORE ? 0 : @input_chan) : @output_chan
-    messages << PortMIDI.message(CONTROLLER + out_chan,
-      CC_BANK_SELECT_MSB,
-      @bank_msb) unless @bank_msb == IGNORE
-    messages << PortMIDI.message(CONTROLLER + out_chan,
-      CC_BANK_SELECT_LSB,
-      @bank_msb) if @bank_lsb != IGNORE
-    messages << PortMIDI.message(PROGRAM_CHANGE + out_chan,
-      @pc_prog, 0) if @pc_prog != IGNORE
-    @output.midi_out(messages) unless messages.empty?
+    if (@output_chan != IGNORE)
+      if @prog
+        prog = @prog.not_ni!
+        messages = [] of UInt32
+        messages << PortMIDI.message(CONTROLLER + out_chan,
+                                     CC_BANK_SELECT_MSB,
+                                     @prog.bank_msb) unless @prog.bank_msb == IGNORE
+        messages << PortMIDI.message(CONTROLLER + out_chan,
+                                     CC_BANK_SELECT_LSB,
+                                     @prog.bank_msb) if @prog.bank_lsb != IGNORE
+        messages << PortMIDI.message(PROGRAM_CHANGE + out_chan,
+                                     @prog.prog, 0) if @prog.prog != IGNORE
+        @output.midi_out(messages) unless messages.empty?
+      end
+    end
+    @processing_sysex = false
     @input.add_connection(self)
   end
 
   def stop(stop_bytes)
-    @output.midi_out(stop_bytes) if stop_bytes
     @input.remove_connection(self)
-  end
-
-  def accept_from_input?(msg)
-    return true if @input_chan == IGNORE
-    status = PortMIDI.status(msg)
-    return true unless status < 0xf0_u8
-    (status & 0x0f) == @input_chan
-  end
-
-  # Returns true if the +@zone+ is nil (allowing all notes throught) or if
-  # +@zone+ is a Range and +note+ is inside +@zone+.
-  def inside_zone?(note)
-    @zone == nil || @zone.includes?(note)
   end
 
   # The workhorse. Ignore bytes that aren't from our input, or are outside
@@ -71,50 +78,52 @@ class Connection
   def midi_in(msg)
     return unless accept_from_input?(msg)
 
-    bytes_duped = false
-
     bytes = PortMIDI.bytes(msg)
-    high_nibble = bytes[0] & 0xF0_u8
-    case high_nibble
-    when NOTE_ON, NOTE_OFF, POLY_PRESSURE
-      return unless inside_zone?(bytes[1])
+    status, data1, data2, data3 = *bytes
+    high_nibble = status & Consts.SYSEX
 
-      if (@output_chan != IGNORE && bytes[0] != high_nibble + @output_chan) || (@xpose && @xpose != 0)
-        duped_bytes = bytes.dup
-        bytes = duped_bytes
-        bytes_duped = true
+    @processing_sysex = true if status == Consts.SYSEX
+
+    # If this is a sysex message, we may or may not filter it out. In any
+    # case we pass through any realtime bytes in the sysex message.
+    if processing_sysex
+      # If any byte is an EOX or if the first byte is a non-realtime status
+      # byte, this is the end of the sysex message.
+      if bytes.includes?(Consts.EOX) || (is_status(status) && !is_realtime(status))
+          (is_status(status) && status < 0xf8 && status != Consts.SYSEX)
+        @processing_sysex = false
       end
 
+      if @pass_through_sysex
+        midi_out(msg)
+        return
+      end
+
+      # If any of the bytes are realtime bytes AND if we are filtering out
+      # sysex, send them.
+      midi_out(Pm_Message(status, 0, 0)) if is_realtime(status)
+      midi_out(Pm_Message(data1, 0, 0)) if is_realtime(data1)
+      midi_out(Pm_Message(data2, 0, 0)) if is_realtime(data2)
+      midi_out(Pm_Message(data3, 0, 0)) if is_realtime(data3)
+      return
+    end
+
+    case high_nibble
+    when NOTE_ON, NOTE_OFF, POLY_PRESSURE
+      return unless @zone.includes?(data1)
       bytes[0] = high_nibble + @output_chan if @output_chan != IGNORE
-      bytes[1] = ((bytes[1] + @xpose) & 0xff) if @xpose
+      bytes[1] += xpose
     when CONTROLLER
-      controller = @cc_maps[bytes[1]]?
+      controller = @cc_maps[data1]?
       if controller
-        new_msg = controller.not_nil!.process(bytes, @output_chan) if controller
-        if new_msg
-          bytes = PortMIDI.bytes(new_msg)
-        else
-          bytes = nil
+        bytes = controller.not_nil!.process(bytes, @output_chan)
+      else
+        if @output_chan != IGNORE
+          bytes[0] = high_nibble + @output_chan if @output_chan != IGNORE
         end
       end
     when PROGRAM_CHANGE, CHANNEL_PRESSURE, PITCH_BEND
-      if (@output_chan != IGNORE && bytes[0] != high_nibble + @output_chan)
-        bytes = bytes.dup
-        bytes_duped = true
-        bytes[0] = high_nibble + @output_chan
-      end
-    end
-
-    # We can't tell if a filter will modify the bytes, so we have to assume
-    # they will be. If we didn't, we'd have to rely on the filter duping the
-    # bytes and returning the dupe.
-    if @filter
-      if !bytes_duped
-        bytes = bytes.dup
-        bytes_duped = true
-      end
-      # TODO
-      # bytes = @filter.not_nil!.call(self, bytes)
+      bytes[0] = high_nibble + @output_chan if @output_chan != IGNORE
     end
 
     if bytes && bytes.size > 0
@@ -123,8 +132,22 @@ class Connection
     end
   end
 
+  def add_controller(controller : Controller)
+    cc_maps[controller.cc_num] = controller
+  end
+
+  # Returns `true` if any one of the following are true:
+  # - we accept any input channel
+  # - it's a system message, not a channel message
+  # - the input channel matches our selected `input_chan`
+  def accept_from_input?(msg)
+    return true if @input_chan == IGNORE || @processing_sysex
+    status = PortMIDI.status(msg)
+    status >= Consts.SYSEX || (status & 0x0f) == @input_chan
+  end
+
   def pc?
-    @pc_prog != nil
+    @prog != nil
   end
 
   def note_num_to_name(n)
@@ -135,7 +158,7 @@ class Connection
 
   def to_s
     str = "#{@input.name} ch #{@input_chan ? @input_chan + 1 : "all"} -> #{@output.name} ch #{@output_chan + 1}"
-    str << "; pc #@pc_prog" if pc?
+    str << "; pc #@prog" if pc?
     str << "; xpose #@xpose" if @xpose
     str << "; zone #{note_num_to_name(@zone.begin)}..#{note_num_to_name(@zone.end)}" if @zone
     str
