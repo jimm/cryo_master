@@ -391,7 +391,7 @@ class Loader
     args = comma_sep_args(line, true)
     cc_num = args[0].to_u8
     cc = Controller.new(cc_num)
-    @conn.not_nil!.cc_maps[cc_num] = cc
+    @conn.not_nil!.add_controller(cc)
 
     skip = 0
     args.shift

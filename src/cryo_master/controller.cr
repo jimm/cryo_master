@@ -10,12 +10,13 @@ class Controller
   property? filtered = false
 
   def initialize(@cc_num)
+    @translated_cc_num = @cc_num
   end
 
   # Returns true if this controller will modify the original by filtering,
   # translating, or clamping.
   def will_modify?
-    filtered? || translated_cc_num != IGNORE || min != 0_u8 || max != 127_u8
+    filtered? || @translated_cc_num != @cc_num || @min != 0_u8 || @max != 127_u8
   end
 
   # Returns a message if there's something to send, else nil
@@ -23,17 +24,13 @@ class Controller
     return nil if filtered?
 
     status = CONTROLLER
-    data1 = bytes[1]
+    data1 = @translated_cc_num
     data2 = bytes[2]
 
     if output_channel != IGNORE
       status += output_channel
     else
       status += bytes[0] & 0x0f
-    end
-
-    if translated_cc_num != IGNORE
-      data1 = translated_cc_num
     end
 
     PortMIDI.message(status, data1, clamp(data2))
