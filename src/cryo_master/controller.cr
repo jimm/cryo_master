@@ -19,24 +19,18 @@ class Controller
     filtered? || @translated_cc_num != @cc_num || @min != 0_u8 || @max != 127_u8
   end
 
-  # Returns a message if there's something to send, else nil
-  def process(bytes, output_channel : UInt8) : UInt32?
+  # Returns bytes if there's something to send, else nil
+  def process(bytes : StaticArray(UInt8, 4), output_channel : UInt8) : Array(UInt8)?
     return nil if filtered?
 
-    status = CONTROLLER
-    data1 = @translated_cc_num
-    data2 = bytes[2]
-
+    processed = [CONTROLLER, @translated_cc_num, bytes[2], 0_u8]
     if output_channel != IGNORE
-      status += output_channel
-    else
-      status += bytes[0] & 0x0f
+      processed[0] = (processed[0] & 0xf0) + output_channel
     end
-
-    PortMIDI.message(status, data1, clamp(data2))
+    processed
   end
 
-  def clamp(val : UInt8)
+  def clamp(val : UInt8) : UInt8
     if val < min
       min
     elsif val > max

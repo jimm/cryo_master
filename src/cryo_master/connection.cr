@@ -1,4 +1,4 @@
-progrequire "./consts"
+require "./consts"
 require "./instrument"
 require "./controller"
 
@@ -13,12 +13,13 @@ end
 class Program
   IGNORE = 128_u8
 
-  propery bank_msb : UInt8
-  propery bank_lsb : UInt8
+  property bank_msb : UInt8
+  property bank_lsb : UInt8
   property prog : UInt8
 
   def initialize(@bank_msb = IGNORE, @bank_lsb = IGNORE, @prog = IGNORE)
   end
+end
 
 class Connection
   include Consts
@@ -38,24 +39,24 @@ class Connection
   NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
   def initialize(@input, @input_chan, @output, @output_chan, @filter = nil,
-                 @prog = Program.new(), @zone = (0_u8..127_u8), @xpose = 0)
+                 @prog = Program.new, @zone = (0_u8..127_u8), @xpose = 0)
     @pass_through_sysex = false
     @processing_sysex = false
   end
 
-  def start(start_messages : Array(UInt32))
+  def start
     if (@output_chan != IGNORE)
       if @prog
-        prog = @prog.not_ni!
+        prog = @prog.not_nil!
         messages = [] of UInt32
-        messages << PortMIDI.message(CONTROLLER + out_chan,
-                                     CC_BANK_SELECT_MSB,
-                                     @prog.bank_msb) unless @prog.bank_msb == IGNORE
-        messages << PortMIDI.message(CONTROLLER + out_chan,
-                                     CC_BANK_SELECT_LSB,
-                                     @prog.bank_msb) if @prog.bank_lsb != IGNORE
-        messages << PortMIDI.message(PROGRAM_CHANGE + out_chan,
-                                     @prog.prog, 0) if @prog.prog != IGNORE
+        messages << PortMIDI.message(CONTROLLER + output_chan,
+          CC_BANK_SELECT_MSB,
+          prog.bank_msb) unless prog.bank_msb == IGNORE
+        messages << PortMIDI.message(CONTROLLER + output_chan,
+          CC_BANK_SELECT_LSB,
+          prog.bank_msb) if prog.bank_lsb != IGNORE
+        messages << PortMIDI.message(PROGRAM_CHANGE + output_chan,
+          prog.prog, 0) if prog.prog != IGNORE
         @output.midi_out(messages) unless messages.empty?
       end
     end
@@ -63,7 +64,7 @@ class Connection
     @input.add_connection(self)
   end
 
-  def stop(stop_bytes)
+  def stop
     @input.remove_connection(self)
   end
 
@@ -79,32 +80,32 @@ class Connection
     return unless accept_from_input?(msg)
 
     bytes = PortMIDI.bytes(msg)
-    status, data1, data2, data3 = *bytes
-    high_nibble = status & Consts.SYSEX
+    status, data1, data2, data3 = bytes
+    high_nibble = status & Consts::SYSEX
 
-    @processing_sysex = true if status == Consts.SYSEX
+    @processing_sysex = true if status == Consts::SYSEX
 
     # If this is a sysex message, we may or may not filter it out. In any
     # case we pass through any realtime bytes in the sysex message.
-    if processing_sysex
+    if @processing_sysex
       # If any byte is an EOX or if the first byte is a non-realtime status
       # byte, this is the end of the sysex message.
-      if bytes.includes?(Consts.EOX) || (is_status(status) && !is_realtime(status))
-          (is_status(status) && status < 0xf8 && status != Consts.SYSEX)
+      if bytes.includes?(Consts::EOX) || (is_status(status) && !is_realtime(status))
+        (is_status(status) && status < 0xf8 && status != Consts::SYSEX)
         @processing_sysex = false
       end
 
       if @pass_through_sysex
-        midi_out(msg)
+        @output.midi_out([msg])
         return
       end
 
       # If any of the bytes are realtime bytes AND if we are filtering out
       # sysex, send them.
-      midi_out(Pm_Message(status, 0, 0)) if is_realtime(status)
-      midi_out(Pm_Message(data1, 0, 0)) if is_realtime(data1)
-      midi_out(Pm_Message(data2, 0, 0)) if is_realtime(data2)
-      midi_out(Pm_Message(data3, 0, 0)) if is_realtime(data3)
+      realtime_messages = bytes
+        .select { |b| is_realtime(b) }
+        .map { |b| PortMIDI.message(b, 0, 0) }
+      @output.midi_out(realtime_messages) unless realtime_messages.empty?
       return
     end
 
@@ -143,7 +144,7 @@ class Connection
   def accept_from_input?(msg)
     return true if @input_chan == IGNORE || @processing_sysex
     status = PortMIDI.status(msg)
-    status >= Consts.SYSEX || (status & 0x0f) == @input_chan
+    status >= Consts::SYSEX || (status & 0x0f) == @input_chan
   end
 
   def pc?

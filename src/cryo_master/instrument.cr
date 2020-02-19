@@ -142,10 +142,6 @@ class OutputInstrument < Instrument
     super(sym, name, port_num, port)
   end
 
-  # def midi_out(bytes : Array(UInt8))
-  #   LibPortMIDI.midi_write(@port, pointerof(bytes), bytes.size)
-  # end
-
   def midi_out(messages : Array(UInt32))
     if Instrument.real_port?(@port_num)
       messages.each { |msg| LibPortMIDI.midi_write_short(@port.not_nil!, 0, msg) }

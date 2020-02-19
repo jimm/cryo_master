@@ -39,7 +39,7 @@ class PatchWindow < CrWindow
       io << " #{"%16s" % connection.output.name}"
       io << " #{"%2d" % (connection.output_chan + 1)} |"
       io << if connection.pc?
-        "  #{"%3d" % connection.prog.pc_prog} |"
+        "  #{"%3d" % connection.prog.prog} |"
       else
         "      |"
       end

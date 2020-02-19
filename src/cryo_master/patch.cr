@@ -21,10 +21,11 @@ class Patch < Nameable
   end
 
   def start
-    unless @running
-      @connections.each { |conn| conn.start(@start_messages) }
-      @running = true
-    end
+    return if @running
+
+    send_messages_to_outputs(@start_messages)
+    @connections.each(&.start)
+    @running = true
   end
 
   def running?
@@ -32,9 +33,19 @@ class Patch < Nameable
   end
 
   def stop
-    if @running
-      @running = false
-      @connections.each { |conn| conn.stop(@stop_messages) }
+    return if !@running
+
+    @connections.each(&.stop)
+    send_messages_to_outputs(@stop_messages)
+    @running = false
+  end
+
+  def send_messages_to_outputs(messages : Array(UInt32))
+    outputs = [] of OutputInstrument
+    @connections.each do |conn|
+      outputs << conn.output
     end
+
+    outputs.to_set.each { |out| out.midi_out(messages) }
   end
 end

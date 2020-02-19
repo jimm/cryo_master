@@ -364,17 +364,19 @@ class Loader
   end
 
   def load_prog(line : String)
-    @conn.not_nil!.pc_prog = line.split(/\s+/)[1].to_u8
+    @conn.not_nil!.prog.prog = line.split(/\s+/)[1].to_u8
   end
 
   def load_bank(line : String)
     args = comma_sep_args(line, true)
+    conn = @conn.not_nil!
+
     if args.size == 1
-      @conn.not_nil!.bank_msb = Connection::IGNORE
-      @conn.not_nil!.bank_lsb = args[0].to_u8
+      conn.prog.bank_msb = Connection::IGNORE
+      conn.prog.bank_lsb = args[0].to_u8
     else
-      @conn.not_nil!.bank_msb = args[0].to_u8
-      @conn.not_nil!.bank_lsb = args[1].to_u8
+      conn.prog.bank_msb = args[0].to_u8
+      conn.prog.bank_lsb = args[1].to_u8
     end
   end
 

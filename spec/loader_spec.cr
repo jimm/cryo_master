@@ -137,13 +137,13 @@ describe Loader do
     conn.zone.should eq (0_u8..127_u8)
 
     conn = p.connections.last
-    conn.pc_prog.should eq 12
+    conn.prog.should eq 12
     conn.bank_msb.should eq 3
     conn.bank_lsb.should eq 2
 
     p = s.patches[1]
     conn = p.connections.last
-    conn.pc_prog.should eq Connection::IGNORE
+    conn.prog.should eq Connection::IGNORE
     conn.bank_msb.should eq Connection::IGNORE
     conn.bank_lsb.should eq 5
     conn.xpose.should eq -12
