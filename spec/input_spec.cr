@@ -41,7 +41,7 @@ describe InputInstrument do
 
     output2 = OutputInstrument.new("out2", "output2 name", -1)
     conn2 = Connection.new(input, 0_u8, output2, 0_u8)
-    conn2.start([] of UInt32)
+    conn2.start
 
     buf = input_test_events()
     input.read(buf, 4)
@@ -67,8 +67,8 @@ describe InputInstrument do
     buf = input_test_events()
 
     input.read(buf, 2) # note on, controller
-    conn.stop([] of UInt32)
-    conn2.start([] of UInt32)
+    conn.stop
+    conn2.start
     input.read(buf[2..], 2) # note off, tune request
 
     # Make sure note off was sent to original output
@@ -106,8 +106,8 @@ describe InputInstrument do
     end
 
     input.read(buf, 2) # note on, sustain on
-    conn.stop([] of UInt32)
-    conn2.start([] of UInt32)
+    conn.stop
+    conn2.start
     input.read(buf[2..], 2) # note off, sustain off
 
     # Make sure note off was sent to original output

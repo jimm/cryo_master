@@ -29,7 +29,7 @@ describe Controller do
 
   it "cc_out_chan" do
     cc = Controller.new(7_u8)
-    cc.process([CONTROLLER, 7_u8, 127_u8, 0_u8], 3_u8).should eq PortMIDI.message(CONTROLLER + 3, 7, 127)
+    cc.process([CONTROLLER, 7_u8, 127_u8, 0_u8], 3_u8).should eq [(CONTROLLER + 3).to_u8, 7_u8, 127_u8, 0]
   end
 
   it "cc_filter" do
@@ -41,7 +41,7 @@ describe Controller do
   it "cc_map" do
     cc = Controller.new(7_u8)
     cc.translated_cc_num = 10_u8
-    cc.process([CONTROLLER, 7_u8, 127_u8, 0_u8], 0_u8).should eq PortMIDI.message(CONTROLLER, 10, 127)
+    cc.process([CONTROLLER, 7_u8, 127_u8, 0_u8], 0_u8).should eq [CONTROLLER.to_u8, 10_u8, 127_u8, 0]
   end
 
   it "cc_limit" do
@@ -49,11 +49,17 @@ describe Controller do
     cc.min = 1_u8
     cc.max = 120_u8
 
-    PortMIDI.data2(cc.process([CONTROLLER, 7_u8, 0_u8, 0_u8], 0_u8).not_nil!).should eq 1_u8
-    PortMIDI.data2(cc.process([CONTROLLER, 7_u8, 1_u8, 0_u8], 0_u8).not_nil!).should eq 1_u8
-    PortMIDI.data2(cc.process([CONTROLLER, 7_u8, 64_u8, 0_u8], 0_u8).not_nil!).should eq 64_u8
-    PortMIDI.data2(cc.process([CONTROLLER, 7_u8, 120_u8, 0_u8], 0_u8).not_nil!).should eq 120_u8
-    PortMIDI.data2(cc.process([CONTROLLER, 7_u8, 121_u8, 0_u8], 0_u8).not_nil!).should eq 120_u8
-    PortMIDI.data2(cc.process([CONTROLLER, 7_u8, 127_u8, 0_u8], 0_u8).not_nil!).should eq 120_u8
+    [
+      [0, 1],
+      [1, 1],
+      [64, 64],
+      [120, 120],
+      [121, 120],
+      [127, 120],
+    ].each do |in_out_vals|
+      in_val, out_val = in_out_vals
+      out_bytes = cc.process([CONTROLLER, 7_u8, in_val.to_u8, 0_u8], 0_u8).not_nil!
+      out_bytes[2].should eq out_val.to_u8
+    end
   end
 end

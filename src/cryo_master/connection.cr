@@ -117,7 +117,7 @@ class Connection
     when CONTROLLER
       controller = @cc_maps[data1]?
       if controller
-        bytes = controller.not_nil!.process(bytes, @output_chan)
+        bytes = controller.not_nil!.process(bytes.to_a, @output_chan)
       else
         if @output_chan != IGNORE
           bytes[0] = high_nibble + @output_chan if @output_chan != IGNORE

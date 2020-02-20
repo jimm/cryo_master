@@ -5,50 +5,16 @@ require "../src/cryo_master/connection"
 include Consts
 
 describe Connection do
-  it "sends start messages" do
+  it "sends start program change" do
     conn = create_conn()
-
-    msgs = [
-      PortMIDI.message(TUNE_REQUEST, 0, 0),
-      PortMIDI.message(CONTROLLER, CC_VOLUME_MSB, 127),
-    ]
-    conn.start(msgs)
+    conn.input_chan = 0
+    conn.output_chan = 1
+    conn.prog.prog = 123
+    conn.start
 
     sent = conn.output.io_messages
-    sent.size.should eq 2
-    sent.should eq msgs
-  end
-
-  it "sends nothing on start if no start messages" do
-    conn = create_conn()
-
-    conn.start([] of UInt32)
-
-    sent = conn.output.io_messages
-    sent.size.should eq 0
-  end
-
-  it "sends stop messages" do
-    conn = create_conn()
-
-    msgs = [
-      PortMIDI.message(TUNE_REQUEST, 0, 0),
-      PortMIDI.message(CONTROLLER, CC_VOLUME_MSB, 127),
-    ]
-    conn.stop(msgs)
-
-    sent = conn.output.io_messages
-    sent.size.should eq 2
-    sent.should eq msgs
-  end
-
-  it "sends nothing on stop if no stop messages" do
-    conn = create_conn()
-
-    conn.stop([] of UInt32)
-
-    sent = conn.output.io_messages
-    sent.size.should eq 0
+    sent.size.should eq 1
+    sent[0].should eq PortMIDI.message(PROGRAM_CHANGE + 1, 123, 0)
   end
 
   it "connection_filter_other_input_chan" do

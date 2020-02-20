@@ -20,10 +20,10 @@ class Controller
   end
 
   # Returns bytes if there's something to send, else nil
-  def process(bytes : StaticArray(UInt8, 4), output_channel : UInt8) : Array(UInt8)?
+  def process(bytes : Array(UInt8), output_channel : UInt8) : Array(UInt8)?
     return nil if filtered?
 
-    processed = [CONTROLLER, @translated_cc_num, bytes[2], 0_u8]
+    processed = [CONTROLLER, @translated_cc_num, clamp(bytes[2]), 0_u8]
     if output_channel != IGNORE
       processed[0] = (processed[0] & 0xf0) + output_channel
     end
